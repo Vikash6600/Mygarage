@@ -1,14 +1,15 @@
 'use client'
 
-import React, { useState, useTransition } from 'react'
+import React, { useState } from 'react'
 import { RoyalEnfieldLogo } from '@/components/RoyalEnfieldLogo'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { loginUser } from '@/features/auth/actions'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { GarageShutter } from '@/components/ui/garage-shutter'
 import { Bike, Car, Droplet, Wrench, Shield } from 'lucide-react'
 
 const features = [
@@ -24,6 +25,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -33,8 +35,11 @@ export default function LoginPage() {
     try {
       const res = await loginUser({ email, password })
       if (res.success) {
-        router.push('/dashboard')
-        router.refresh()
+        setSuccess(true)
+        setTimeout(() => {
+          router.push('/dashboard')
+          router.refresh()
+        }, 1200)
       } else {
         setError(res.error || 'Invalid credentials')
       }
@@ -46,173 +51,95 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-surface-0">
-      {/* Left Column — Visual */}
-      <div className="relative hidden w-1/2 lg:flex flex-col justify-between p-10 overflow-hidden border-r border-border-subtle">
-        <div className="absolute inset-0 z-0">
+    <div className="bg-black min-h-screen w-full overflow-hidden relative font-[family-name:var(--font-display)]">
+      <GarageShutter isOpen={!success} />
+      
+      {/* Cinematic Fade Container */}
+      <motion.div 
+        className="relative flex min-h-screen flex-col items-center justify-end bg-black overflow-hidden pb-12 sm:pb-20"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 2.5, ease: "easeInOut" }}
+      >
+        {/* Full Screen BMW Background */}
+        <div className="absolute inset-0 z-0 flex items-center justify-center">
           <img
-            src="/garage_login_bg.png"
-            alt="Garage background"
-            className="object-cover w-full h-full brightness-[0.4] saturate-[0.6]"
+            src="/bg-bmw.png"
+            alt=""
+            className="object-cover w-full h-full object-[center_top]"
           />
-          <div className="absolute inset-0 bg-gradient-to-br from-surface-0/90 via-surface-0/50 to-transparent" />
+          {/* Subtle gradient to ensure bottom is pitch black for the form */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
         </div>
 
-        {/* Brand */}
+        {/* Minimalist HUD Form */}
         <motion.div
-          initial={{ opacity: 0, y: -12 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="relative z-10 flex items-center gap-3"
+          transition={{ duration: 1.2, delay: 1.5, ease: [0.16, 1, 0.3, 1] }}
+          className="relative z-10 w-full max-w-[400px] px-6 mx-auto flex flex-col items-center"
         >
-          <div className="flex items-center justify-center">
-            <RoyalEnfieldLogo className="w-12 h-12" />
-          </div>
-          <span className="text-xl font-bold tracking-tight text-text-primary font-[family-name:var(--font-display)]">
-            MyGarage
-          </span>
-        </motion.div>
-
-        {/* Hero Text */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="relative z-10 space-y-8"
-        >
-          <div className="space-y-3">
-            <h1 className="text-display text-text-primary max-w-md">
-              Precision vehicle
-              <br />
-              <span className="text-accent">intelligence.</span>
-            </h1>
-            <p className="text-body text-text-secondary max-w-md">
-              Track maintenance, fuel efficiency, expenses, and documents with an interface designed for enthusiasts.
-            </p>
-          </div>
-
-          {/* Feature Grid */}
-          <div className="grid grid-cols-2 gap-3">
-            {features.map((feature, i) => {
-              const Icon = feature.icon
-              return (
-                <motion.div
-                  key={feature.label}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: 0.3 + i * 0.08 }}
-                  className="flex items-start gap-3 p-3 rounded-[var(--radius-md)] bg-surface-1/60 border border-border-subtle backdrop-blur-sm"
-                >
-                  <div className="size-8 rounded-[var(--radius-sm)] bg-accent-muted flex items-center justify-center flex-shrink-0">
-                    <Icon className="size-4 text-accent" />
-                  </div>
-                  <div>
-                    <div className="text-[13px] font-semibold text-text-primary">{feature.label}</div>
-                    <div className="text-[11px] text-text-tertiary">{feature.description}</div>
-                  </div>
-                </motion.div>
-              )
-            })}
-          </div>
-        </motion.div>
-
-        {/* Footer */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.6 }}
-          className="relative z-10 text-caption text-text-tertiary"
-        >
-          © {new Date().getFullYear()} MyGarage. All rights reserved.
-        </motion.div>
-      </div>
-
-      {/* Right Column — Form */}
-      <div className="relative w-full lg:w-1/2 flex flex-col justify-center px-6 py-12 sm:px-12 lg:px-20 xl:px-24">
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="w-full max-w-md mx-auto space-y-8"
-        >
-          {/* Mobile Logo */}
-          <div className="flex items-center gap-2 lg:hidden mb-4">
-            <div className="flex items-center justify-center">
-              <RoyalEnfieldLogo className="w-8 h-8" />
-            </div>
-            <span className="text-lg font-bold text-text-primary font-[family-name:var(--font-display)]">MyGarage</span>
-          </div>
-
-          <div className="space-y-2">
-            <h2 className="text-h1 text-text-primary">Welcome back</h2>
-            <p className="text-body-sm text-text-secondary">
-              Sign in to your account to continue
-            </p>
-          </div>
-
           {error && (
             <motion.div
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-[var(--radius-md)] bg-danger-muted border border-danger/20 p-4 text-body-sm text-danger"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="mb-8 text-sm tracking-widest text-[#FF3B00] text-center font-mono uppercase"
             >
               {error}
             </motion.div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
-              <Input
-                id="email"
-                type="email"
-                required
-                placeholder="name@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="h-11"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <Link
-                  href="/auth/forgot-password"
-                  className="text-[11px] font-medium text-accent hover:text-accent-hover transition-colors"
-                >
-                  Forgot password?
-                </Link>
+          <form onSubmit={handleSubmit} className="w-full space-y-8 flex flex-col items-center">
+            {/* Inputs - Stealth Underlines */}
+            <div className="w-full space-y-6">
+              <div className="relative group">
+                <input
+                  id="email"
+                  type="email"
+                  required
+                  placeholder="EMAIL"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-transparent border-b border-neutral-800 focus:border-white text-center text-lg text-white placeholder:text-neutral-700 tracking-[0.2em] py-3 outline-none transition-colors duration-500 font-mono"
+                />
               </div>
-              <Input
-                id="password"
-                type="password"
-                required
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="h-11"
-              />
+
+              <div className="relative group">
+                <input
+                  id="password"
+                  type="password"
+                  required
+                  placeholder="PASSWORD"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-transparent border-b border-neutral-800 focus:border-white text-center text-lg text-white placeholder:text-neutral-700 tracking-[0.2em] py-3 outline-none transition-colors duration-500 font-mono"
+                />
+              </div>
             </div>
 
-            <Button
+            {/* Sign In Button */}
+            <button
               type="submit"
-              loading={loading}
-              size="lg"
-              className="w-full"
+              disabled={loading}
+              className="mt-8 group relative w-full h-12 border-b border-neutral-800 flex items-center justify-center hover:border-white transition-colors duration-500 focus:outline-none"
             >
-              Sign In
-            </Button>
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <span className="text-xs font-bold tracking-[0.3em] text-neutral-500 group-hover:text-white transition-colors duration-500">
+                  SIGN IN
+                </span>
+              )}
+            </button>
 
-            <p className="text-body-sm text-text-secondary text-center pt-2">
-              Don&apos;t have an account?{' '}
-              <Link href="/auth/register" className="text-accent hover:text-accent-hover font-semibold transition-colors">
-                Create one
+            <div className="pt-8 text-center">
+              <Link href="/auth/register" className="text-[10px] font-mono tracking-[0.2em] text-neutral-600 hover:text-white transition-colors duration-300">
+                INITIATE NEW SYSTEM
               </Link>
-            </p>
+            </div>
           </form>
         </motion.div>
-      </div>
+      </motion.div>
     </div>
   )
 }

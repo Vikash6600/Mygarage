@@ -45,12 +45,22 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* Welcome Header */}
-      <div className="space-y-1">
-        <h1 className="text-h1 text-text-primary">{greeting}</h1>
-        <p className="text-body text-text-secondary">
-          Here&apos;s an overview of your garage activity and expenses.
-        </p>
+      {/* Cinematic Hero Header */}
+      <div className="relative w-full h-48 sm:h-64 rounded-[var(--radius-xl)] overflow-hidden shadow-2xl mb-2 border border-border-subtle/50">
+        <img
+          src="https://images.unsplash.com/photo-1542282088-fe8426682b8f?q=80&w=3000&auto=format&fit=crop"
+          alt="Dashboard Hero"
+          className="absolute inset-0 w-full h-full object-cover brightness-[0.45] saturate-[0.7]"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-surface-0/90 via-surface-0/40 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-surface-0/60 to-transparent" />
+        
+        <div className="absolute inset-0 p-6 sm:p-10 flex flex-col justify-end z-10">
+          <h1 className="text-display text-text-primary mb-2 tracking-tight drop-shadow-lg">{greeting}</h1>
+          <p className="text-body text-text-secondary max-w-md drop-shadow-md">
+            Here&apos;s an overview of your garage activity and expenses.
+          </p>
+        </div>
       </div>
 
       {/* KPI Stats Grid */}

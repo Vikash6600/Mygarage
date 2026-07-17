@@ -54,197 +54,133 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-surface-0">
-      {/* Left Column — Visual */}
-      <div className="relative hidden w-1/2 lg:flex flex-col justify-between p-10 overflow-hidden border-r border-border-subtle">
-        <div className="absolute inset-0 z-0">
+    <div className="bg-black min-h-screen w-full overflow-hidden relative font-[family-name:var(--font-display)]">
+      
+      {/* Cinematic Fade Container */}
+      <motion.div 
+        className="relative flex min-h-screen flex-col items-center justify-end bg-black overflow-hidden pb-12 sm:pb-20"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 2.5, ease: "easeInOut" }}
+      >
+        {/* Full Screen BMW Background */}
+        <div className="absolute inset-0 z-0 flex items-center justify-center">
           <img
-            src="/garage_login_bg.png"
-            alt="Garage background"
-            className="object-cover w-full h-full brightness-[0.4] saturate-[0.6]"
+            src="/bg-bmw.png"
+            alt=""
+            className="object-cover w-full h-full object-[center_top]"
           />
-          <div className="absolute inset-0 bg-gradient-to-br from-surface-0/90 via-surface-0/50 to-transparent" />
+          {/* Subtle gradient to ensure bottom is pitch black for the form */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
         </div>
 
+        {/* Minimalist HUD Form */}
         <motion.div
-          initial={{ opacity: 0, y: -12 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="relative z-10 flex items-center gap-3"
+          transition={{ duration: 1.2, delay: 1.5, ease: [0.16, 1, 0.3, 1] }}
+          className="relative z-10 w-full max-w-[500px] px-6 mx-auto flex flex-col items-center"
         >
-          <div className="flex items-center justify-center">
-            <RoyalEnfieldLogo className="w-12 h-12" />
-          </div>
-          <span className="text-xl font-bold tracking-tight text-text-primary font-[family-name:var(--font-display)]">
-            MyGarage
-          </span>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="relative z-10 space-y-8"
-        >
-          <div className="space-y-3">
-            <h1 className="text-display text-text-primary max-w-md">
-              Start your
-              <br />
-              <span className="text-accent">precision journey.</span>
-            </h1>
-            <p className="text-body text-text-secondary max-w-md">
-              Create your garage and begin tracking every aspect of your vehicles with surgical precision.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            {features.map((feature, i) => {
-              const Icon = feature.icon
-              return (
-                <motion.div
-                  key={feature.label}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: 0.3 + i * 0.08 }}
-                  className="flex items-start gap-3 p-3 rounded-[var(--radius-md)] bg-surface-1/60 border border-border-subtle backdrop-blur-sm"
-                >
-                  <div className="size-8 rounded-[var(--radius-sm)] bg-accent-muted flex items-center justify-center flex-shrink-0">
-                    <Icon className="size-4 text-accent" />
-                  </div>
-                  <div>
-                    <div className="text-[13px] font-semibold text-text-primary">{feature.label}</div>
-                    <div className="text-[11px] text-text-tertiary">{feature.description}</div>
-                  </div>
-                </motion.div>
-              )
-            })}
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.6 }}
-          className="relative z-10 text-caption text-text-tertiary"
-        >
-          © {new Date().getFullYear()} MyGarage. All rights reserved.
-        </motion.div>
-      </div>
-
-      {/* Right Column — Form */}
-      <div className="relative w-full lg:w-1/2 flex flex-col justify-center px-6 py-12 sm:px-12 lg:px-20 xl:px-24">
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="w-full max-w-md mx-auto space-y-8"
-        >
-          <div className="flex items-center gap-2 lg:hidden mb-4">
-            <div className="flex items-center justify-center">
-              <RoyalEnfieldLogo className="w-8 h-8" />
-            </div>
-            <span className="text-lg font-bold text-text-primary font-[family-name:var(--font-display)]">MyGarage</span>
-          </div>
-
-          <div className="space-y-2">
-            <h2 className="text-h1 text-text-primary">Create account</h2>
-            <p className="text-body-sm text-text-secondary">
-              Sign up to start tracking your vehicles
-            </p>
-          </div>
-
           {success ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="rounded-[var(--radius-lg)] bg-success-muted border border-success/20 p-6 text-center space-y-3"
+              className="text-center space-y-4"
             >
-              <CheckCircle2 className="size-10 text-success mx-auto" />
-              <div className="text-h3 text-success">Registration Successful!</div>
-              <p className="text-body-sm text-text-secondary">
-                Redirecting you to the login screen...
+              <CheckCircle2 className="size-12 text-[#FF4500] mx-auto opacity-80" />
+              <div className="text-xl tracking-[0.2em] font-mono text-white">SYSTEM INITIALIZED</div>
+              <p className="text-xs tracking-[0.1em] font-mono text-neutral-500">
+                PROCEEDING TO IGNITION...
               </p>
             </motion.div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="w-full space-y-8 flex flex-col items-center">
               {error && (
                 <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="rounded-[var(--radius-md)] bg-danger-muted border border-danger/20 p-4 text-body-sm text-danger"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="mb-4 text-sm tracking-widest text-[#FF3B00] text-center font-mono uppercase"
                 >
                   {error}
                 </motion.div>
               )}
 
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  type="text"
-                  required
-                  placeholder="John Doe"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  required
-                  placeholder="name@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
+              {/* Inputs - Stealth Underlines */}
+              <div className="w-full space-y-6">
+                <div className="relative group">
+                  <input
+                    id="name"
+                    type="text"
                     required
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="FULL NAME"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full bg-transparent border-b border-neutral-800 focus:border-white text-center text-lg text-white placeholder:text-neutral-700 tracking-[0.2em] py-3 outline-none transition-colors duration-500 font-mono"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirm</Label>
-                  <Input
-                    id="confirmPassword"
-                    type="password"
+
+                <div className="relative group">
+                  <input
+                    id="email"
+                    type="email"
                     required
-                    placeholder="••••••••"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="EMAIL"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full bg-transparent border-b border-neutral-800 focus:border-white text-center text-lg text-white placeholder:text-neutral-700 tracking-[0.2em] py-3 outline-none transition-colors duration-500 font-mono"
                   />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="relative group">
+                    <input
+                      id="password"
+                      type="password"
+                      required
+                      placeholder="PASSWORD"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full bg-transparent border-b border-neutral-800 focus:border-white text-center text-lg text-white placeholder:text-neutral-700 tracking-[0.2em] py-3 outline-none transition-colors duration-500 font-mono"
+                    />
+                  </div>
+                  <div className="relative group">
+                    <input
+                      id="confirmPassword"
+                      type="password"
+                      required
+                      placeholder="CONFIRM"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="w-full bg-transparent border-b border-neutral-800 focus:border-white text-center text-lg text-white placeholder:text-neutral-700 tracking-[0.2em] py-3 outline-none transition-colors duration-500 font-mono"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <Button
+              {/* Subtle Create Button */}
+              <button
                 type="submit"
-                loading={loading}
-                size="lg"
-                className="w-full"
+                disabled={loading}
+                className="mt-8 group relative w-full h-12 border-b border-neutral-800 flex items-center justify-center hover:border-white transition-colors duration-500 focus:outline-none"
               >
-                Create Account
-              </Button>
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <span className="text-xs font-bold tracking-[0.3em] text-neutral-500 group-hover:text-white transition-colors duration-500">
+                    CREATE ACCOUNT
+                  </span>
+                )}
+              </button>
 
-              <p className="text-body-sm text-text-secondary text-center pt-2">
-                Already have an account?{' '}
-                <Link href="/auth/login" className="text-accent hover:text-accent-hover font-semibold transition-colors">
-                  Sign In
+              <div className="pt-8 text-center">
+                <Link href="/auth/login" className="text-[10px] font-mono tracking-[0.2em] text-neutral-600 hover:text-white transition-colors duration-300">
+                  RETURN TO IGNITION
                 </Link>
-              </p>
+              </div>
             </form>
           )}
         </motion.div>
-      </div>
+      </motion.div>
     </div>
   )
 }

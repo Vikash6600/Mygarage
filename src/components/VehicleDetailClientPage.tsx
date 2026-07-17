@@ -227,7 +227,7 @@ export function VehicleDetailClientPage({
   ]
 
   return (
-    <div className="flex flex-col space-y-6 animate-fade-in relative -mx-4 sm:-mx-8 -mt-6">
+    <div className="flex flex-col space-y-6 animate-fade-in relative -mx-4 sm:-mx-8 md:-mt-8">
       
       {/* Hero Header Section */}
       <div className="relative w-full h-[30vh] min-h-[250px] bg-surface-1 border-b border-border-subtle overflow-hidden flex items-center justify-center">

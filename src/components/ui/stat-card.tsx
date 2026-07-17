@@ -20,7 +20,7 @@ export function StatCard({ label, value, icon, trend, description, className }: 
   return (
     <div
       className={cn(
-        "relative rounded-[var(--radius-lg)] border border-border-subtle bg-surface-1 p-5 transition-all duration-200 hover:border-border-default group overflow-hidden",
+        "relative rounded-[var(--radius-xl)] glass-card p-6 group overflow-hidden hover:scale-[1.02]",
         className
       )}
     >
@@ -30,7 +30,7 @@ export function StatCard({ label, value, icon, trend, description, className }: 
       <div className="flex items-start justify-between mb-3">
         <span className="text-overline text-text-tertiary">{label}</span>
         {icon && (
-          <div className="flex items-center justify-center size-9 rounded-[var(--radius-md)] bg-accent-muted text-accent transition-transform duration-200 group-hover:scale-105">
+          <div className="flex items-center justify-center size-10 rounded-[var(--radius-md)] bg-accent/20 backdrop-blur-sm border border-accent/30 text-accent transition-transform duration-200 group-hover:scale-110 shadow-[0_0_15px_rgba(var(--accent),0.2)]">
             {icon}
           </div>
         )}

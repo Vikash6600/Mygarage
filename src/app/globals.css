@@ -103,11 +103,11 @@
    DARK MODE (Primary)
    ============================================================ */
 :root {
-  /* Surfaces — warm charcoal */
-  --surface-0: oklch(0.13 0.005 60);
-  --surface-1: oklch(0.17 0.006 60);
-  --surface-2: oklch(0.21 0.007 60);
-  --surface-3: oklch(0.25 0.008 60);
+  /* Surfaces — OLED Black */
+  --surface-0: oklch(0.10 0.002 60);
+  --surface-1: oklch(0.13 0.004 60);
+  --surface-2: oklch(0.18 0.006 60);
+  --surface-3: oklch(0.22 0.008 60);
 
   /* Text */
   --text-primary: oklch(0.93 0.005 80);
@@ -245,6 +245,28 @@
     line-height: 1.2;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+  }
+
+  /* Glassmorphism Utilities */
+  .glass-panel {
+    background-color: oklch(0.13 0.004 60 / 50%);
+    backdrop-filter: blur(24px);
+    border: 1px solid oklch(0.30 0.010 60 / 30%);
+    box-shadow: 0 16px 40px oklch(0 0 0 / 40%);
+  }
+
+  .glass-card {
+    background-color: oklch(0.13 0.004 60 / 60%);
+    backdrop-filter: blur(16px);
+    border: 1px solid oklch(0.30 0.010 60 / 25%);
+    box-shadow: 0 8px 32px oklch(0 0 0 / 30%);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  
+  .glass-card:hover {
+    background-color: oklch(0.18 0.006 60 / 70%);
+    border-color: oklch(0.30 0.010 60 / 50%);
+    box-shadow: 0 12px 48px oklch(0 0 0 / 50%);
   }
 }
 

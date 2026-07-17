@@ -21,7 +21,9 @@ interface VehiclesClientPageProps {
 }
 
 function DynamicVehicleCard({ vehicle, router, openEditDrawer, handleDelete, index }: any) {
-  const imageUrl = vehicle.photos?.[0] || (vehicle.type === 'CAR' ? '/car_placeholder.png' : '/motorcycle_placeholder.png')
+  const imageUrl = vehicle.photos?.[0] || (vehicle.type === 'CAR' 
+    ? 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=1200&auto=format&fit=crop' 
+    : 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=1200&auto=format&fit=crop')
 
   return (
     <motion.div
@@ -32,69 +34,68 @@ function DynamicVehicleCard({ vehicle, router, openEditDrawer, handleDelete, ind
     >
       <div
         onClick={() => router.push(`/vehicles/${vehicle.id}`)}
-        className="group rounded-[var(--radius-lg)] border border-border-subtle bg-surface-1 overflow-hidden cursor-pointer transition-all duration-200 hover:border-accent/30 hover:shadow-md flex h-full flex-col"
+        className="group rounded-[var(--radius-xl)] glass-card overflow-hidden cursor-pointer flex flex-col relative border-border-subtle/50 h-full"
       >
-        {/* Image */}
-        <div className="relative overflow-hidden bg-surface-2 shrink-0 w-full h-56 sm:h-64">
-          {/* Blurred Background to fill empty space */}
+        {/* Responsive Image Container */}
+        <div className="relative w-full max-h-[280px] flex items-center justify-center overflow-hidden shrink-0 bg-surface-2/30">
+          {/* Blurred Background to fill empty space (absolute) */}
           <img
             src={imageUrl}
-            alt="background"
+            alt=""
             className={`absolute inset-0 w-full h-full object-cover opacity-40 blur-xl scale-125 ${!vehicle.photos?.[0] && 'brightness-[0.7]'}`}
           />
-          {/* Main uncropped image */}
+          {/* Main uncropped image that dictates height */}
           <img
             src={imageUrl}
             alt={vehicle.name}
-            className={`relative z-10 w-full h-full object-contain group-hover:scale-[1.03] transition-transform duration-500 ${!vehicle.photos?.[0] && 'brightness-[0.7]'}`}
+            className={`relative z-10 w-full max-h-[280px] object-contain group-hover:scale-[1.03] transition-transform duration-700 ease-out ${!vehicle.photos?.[0] && 'brightness-[0.7]'}`}
           />
-          <div className="absolute inset-0 z-20 bg-gradient-to-t from-surface-1 via-transparent to-transparent opacity-90" />
-
-          {/* Type Badge */}
-          <div className="absolute top-3 left-3 z-30">
-            <Badge variant={vehicle.type === 'CAR' ? 'accent' : 'success'} size="sm">
+          
+          {/* Top Badges (Inside image container) */}
+          <div className="absolute top-4 left-4 z-30 flex gap-2">
+            <Badge variant={vehicle.type === 'CAR' ? 'accent' : 'success'} size="sm" className="backdrop-blur-md bg-surface-0/60 border-border-subtle/50 text-[10px]">
               {vehicle.type}
             </Badge>
-          </div>
-
-          {/* Registration */}
-          {vehicle.registrationNumber && (
-            <div className="absolute top-3 right-3 z-30">
-              <span className="text-[10px] font-mono font-medium text-text-primary bg-surface-0/80 backdrop-blur-sm border border-border-subtle px-1.5 py-0.5 rounded-[var(--radius-xs)]">
+            {vehicle.registrationNumber && (
+              <span className="text-[10px] font-mono font-medium text-text-primary bg-surface-0/60 backdrop-blur-md border border-border-subtle/50 px-2 py-0.5 rounded-[var(--radius-sm)] flex items-center">
                 {vehicle.registrationNumber}
               </span>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
-        {/* Details */}
-        <div className="p-4 space-y-3 flex-1 flex flex-col">
+
+
+        {/* Bottom Details (Flows naturally below image) */}
+        <div className="relative z-20 p-5 bg-surface-0/60 backdrop-blur-2xl border-t border-border-subtle/30 space-y-3 transition-colors group-hover:bg-surface-0/80 flex-1 flex flex-col justify-end">
           <div>
-            <h3 className="text-h3 text-text-primary group-hover:text-accent transition-colors truncate">{vehicle.name}</h3>
-            <p className="text-caption text-text-tertiary mt-0.5">
+            <h3 className="text-h3 text-text-primary group-hover:text-accent transition-colors truncate drop-shadow-md">{vehicle.name}</h3>
+            <p className="text-caption text-text-tertiary mt-0.5 drop-shadow-sm">
               {vehicle.brand} · {vehicle.model} · {new Date(vehicle.purchaseDate).getFullYear()}
             </p>
           </div>
 
-          <div className="flex items-center gap-4 text-caption text-text-secondary py-1">
-            <span className="flex items-center gap-1">
-              <Gauge className="size-3" />
-              {vehicle.currentOdometer.toLocaleString()} km
-            </span>
-            <span className="flex items-center gap-1 capitalize">
-              <Fuel className="size-3" />
-              {vehicle.fuelType.toLowerCase()}
-            </span>
-          </div>
-
-          {/* Actions */}
-          <div className="flex justify-end gap-1.5 pt-2 mt-auto border-t border-border-subtle">
-            <Button variant="ghost" size="icon-sm" onClick={(e) => openEditDrawer(vehicle, e)}>
-              <Edit3 className="size-3.5" />
-            </Button>
-            <Button variant="danger" size="icon-sm" onClick={(e) => handleDelete(vehicle.id, e)}>
-              <Trash2 className="size-3.5" />
-            </Button>
+          <div className="flex items-center justify-between text-caption text-text-secondary pt-3 border-t border-border-subtle/30">
+            <div className="flex gap-4">
+              <span className="flex items-center gap-1.5 font-medium">
+                <Gauge className="size-3.5 text-accent" />
+                {vehicle.currentOdometer.toLocaleString()} km
+              </span>
+              <span className="flex items-center gap-1.5 capitalize font-medium">
+                <Fuel className="size-3.5 text-success" />
+                {vehicle.fuelType.toLowerCase()}
+              </span>
+            </div>
+            
+            {/* Actions */}
+            <div className="flex gap-1">
+              <Button variant="ghost" size="icon-sm" className="h-7 w-7 rounded-full bg-surface-2/50 hover:bg-surface-3 transition-colors" onClick={(e) => openEditDrawer(vehicle, e)}>
+                <Edit3 className="size-3" />
+              </Button>
+              <Button variant="ghost" size="icon-sm" className="h-7 w-7 rounded-full bg-surface-2/50 hover:bg-danger/20 hover:text-danger transition-colors" onClick={(e) => handleDelete(vehicle.id, e)}>
+                <Trash2 className="size-3" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>

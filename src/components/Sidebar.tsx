@@ -23,6 +23,7 @@ import {
 import { logoutUser } from '@/features/auth/actions'
 import { Avatar } from '@/components/ui/avatar'
 import { Tooltip } from '@/components/ui/tooltip'
+import { GarageShutter } from '@/components/ui/garage-shutter'
 
 const menuItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -33,18 +34,22 @@ const menuItems = [
 
 const menuDividerAfter = new Set(['Garage'])
 
-export function Sidebar() {
+export function Sidebar({ user }: { user?: any }) {
   const pathname = usePathname()
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   const handleLogout = async () => {
-    const res = await logoutUser()
-    if (res.success) {
-      router.push('/auth/login')
-      router.refresh()
-    }
+    setIsLoggingOut(true)
+    setTimeout(async () => {
+      const res = await logoutUser()
+      if (res.success) {
+        router.push('/auth/login')
+        router.refresh()
+      }
+    }, 1200)
   }
 
   const isActive = (href: string) =>
@@ -140,11 +145,11 @@ export function Sidebar() {
 
         {/* User card */}
         <div className={`flex items-center gap-3 px-3 py-2 rounded-[var(--radius-md)] ${collapsed && !isMobile ? 'justify-center px-0' : ''}`}>
-          <Avatar name="Owner" size="sm" />
+          <Avatar name={user?.name || user?.email || 'Owner'} size="sm" />
           {(!collapsed || isMobile) && (
             <div className="flex-1 min-w-0">
-              <div className="text-[13px] font-semibold text-text-primary truncate">Owner</div>
-              <div className="text-[10px] text-text-tertiary">Manager</div>
+              <div className="text-[13px] font-semibold text-text-primary truncate">{user?.name || 'Owner'}</div>
+              <div className="text-[10px] text-text-tertiary">{user?.role || 'Manager'}</div>
             </div>
           )}
           {(!collapsed || isMobile) && (
@@ -163,6 +168,7 @@ export function Sidebar() {
 
   return (
     <>
+      <GarageShutter isOpen={!isLoggingOut} />
       {/* Desktop Sidebar */}
       <aside
         className={`hidden md:flex flex-col bg-surface-0 border-r border-border-subtle min-h-screen fixed z-30 transition-all duration-300 ease-out ${
@@ -172,13 +178,19 @@ export function Sidebar() {
         <NavContent />
       </aside>
 
-      {/* Mobile Hamburger */}
-      <button
-        onClick={() => setMobileOpen(true)}
-        className="md:hidden fixed top-4 left-4 z-40 p-2 rounded-[var(--radius-md)] bg-surface-1 border border-border-subtle text-text-primary shadow-md cursor-pointer"
-      >
-        <Menu className="size-5" />
-      </button>
+      {/* Mobile Header */}
+      <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-surface-0/90 backdrop-blur-md border-b border-border-subtle z-40 flex items-center justify-between px-4 shadow-sm">
+        <div className="flex items-center gap-2">
+          <RoyalEnfieldLogo className="w-8 h-8" />
+          <span className="font-bold text-lg font-display text-text-primary tracking-tight">MyGarage</span>
+        </div>
+        <button
+          onClick={() => setMobileOpen(true)}
+          className="p-1.5 rounded-[var(--radius-sm)] text-text-primary bg-surface-1 border border-border-subtle hover:bg-surface-2 transition-colors cursor-pointer"
+        >
+          <Menu className="size-5" />
+        </button>
+      </div>
 
       {/* Mobile Drawer */}
       <AnimatePresence>
