@@ -2,16 +2,30 @@
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, FileText, Search, X, Loader2 } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { Plus, Trash2, FileText, Search, Loader2 } from 'lucide-react'
 import { createDocumentAction, deleteDocumentAction } from '@/features/documents/actions'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Drawer } from '@/components/ui/drawer'
+import { EmptyState } from '@/components/ui/empty-state'
 
 interface DocumentsClientPageProps {
   documents: any[]
   vehicles: any[]
+}
+
+const typeColors: Record<string, 'accent' | 'success' | 'warning' | 'danger' | 'info' | 'default'> = {
+  REGISTRATION: 'accent',
+  INSURANCE: 'success',
+  PUC: 'warning',
+  LICENSE: 'info',
+  WARRANTY: 'info',
+  RECEIPT: 'default',
+  OTHER: 'default',
 }
 
 export function DocumentsClientPage({ documents: initialDocuments, vehicles }: DocumentsClientPageProps) {
@@ -19,8 +33,7 @@ export function DocumentsClientPage({ documents: initialDocuments, vehicles }: D
   const [documents, setDocuments] = useState(initialDocuments)
   const [search, setSearch] = useState('')
   const [filterType, setFilterType] = useState('ALL')
-
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -33,333 +46,162 @@ export function DocumentsClientPage({ documents: initialDocuments, vehicles }: D
   const [docFileSize, setDocFileSize] = useState(0)
   const [docExpiryDate, setDocExpiryDate] = useState('')
 
-  const openAddModal = () => {
-    setError(null)
-    setDocName('')
-    setDocFileUrl('')
-    setDocFileType('')
-    setDocFileSize(0)
-    setDocExpiryDate('')
-    if (vehicles.length > 0) {
-      setVehicleId(vehicles[0].id)
-    }
-    setIsModalOpen(true)
+  const openAddDrawer = () => {
+    setError(null); setDocName(''); setDocFileUrl(''); setDocFileType(''); setDocFileSize(0); setDocExpiryDate('')
+    if (vehicles.length > 0) setVehicleId(vehicles[0].id)
+    setIsDrawerOpen(true)
   }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setUploading(true)
-    setError(null)
-    const formData = new FormData()
-    formData.append('file', file)
+    const file = e.target.files?.[0]; if (!file) return
+    setUploading(true); setError(null)
+    const formData = new FormData(); formData.append('file', file)
     try {
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      })
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
       const data = await res.json()
       if (data.success) {
-        setDocFileUrl(data.path)
-        setDocFileType(file.type)
-        setDocFileSize(file.size)
+        setDocFileUrl(data.path); setDocFileType(file.type); setDocFileSize(file.size)
         if (!docName) setDocName(file.name.split('.')[0])
-      } else {
-        setError(data.error || 'Upload failed')
-      }
-    } catch (err: any) {
-      setError('Upload failed. Please try again.')
-    } finally {
-      setUploading(false)
-    }
+      } else setError(data.error || 'Upload failed')
+    } catch { setError('Upload failed.') } finally { setUploading(false) }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-    if (!vehicleId) {
-      setError('Please select a vehicle')
-      setLoading(false)
-      return
-    }
+    e.preventDefault(); setLoading(true); setError(null)
     try {
       const res = await createDocumentAction({
-        vehicleId,
-        type: docType,
-        name: docName,
-        fileUrl: docFileUrl,
-        fileType: docFileType,
-        fileSize: docFileSize,
-        expiryDate: docExpiryDate ? new Date(docExpiryDate) : null,
+        vehicleId, type: docType, name: docName, fileUrl: docFileUrl,
+        fileType: docFileType, fileSize: docFileSize, expiryDate: docExpiryDate ? new Date(docExpiryDate) : null,
       })
-      if (res.success) {
-        setDocuments([res.data, ...documents])
-        setIsModalOpen(false)
-        router.refresh()
-      } else {
-        setError(res.error || 'Failed to add document')
-      }
-    } catch (err: any) {
-      setError('An unexpected error occurred.')
-    } finally {
-      setLoading(false)
-    }
+      if (res.success) { setDocuments([res.data, ...documents]); setIsDrawerOpen(false); router.refresh() }
+      else setError(res.error || 'Failed')
+    } catch { setError('An unexpected error occurred.') } finally { setLoading(false) }
   }
 
-  const handleDelete = async (id: string, vId: string) => {
-    if (!confirm('Are you sure you want to delete this document?')) return
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this document?')) return
+    const doc = documents.find(d => d.id === id)
     try {
-      const res = await deleteDocumentAction(id, vId)
-      if (res.success) {
-        setDocuments(documents.filter((d) => d.id !== id))
-        router.refresh()
-      }
-    } catch (err) {
-      alert('Failed to delete document')
-    }
+      const res = await deleteDocumentAction(id, doc?.vehicleId || '')
+      if (res.success) { setDocuments(documents.filter(d => d.id !== id)); router.refresh() }
+    } catch { alert('Failed to delete') }
   }
 
-  const filteredDocs = documents.filter((doc) => {
-    const matchesSearch = doc.name.toLowerCase().includes(search.toLowerCase())
-    const matchesType = filterType === 'ALL' || doc.type === filterType
-    return matchesSearch && matchesType
+  const vehicleMap = new Map(vehicles.map((v: any) => [v.id, v.name]))
+
+  const filtered = documents.filter((d) => {
+    const matchSearch = d.name.toLowerCase().includes(search.toLowerCase())
+    const matchType = filterType === 'ALL' || d.type === filterType
+    return matchSearch && matchType
   })
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-white font-sans">Documents Vault</h1>
-          <p className="text-sm text-slate-400 mt-1 font-medium">
-            Manage registration certs, insurance policies, PUC logs, and warranties.
-          </p>
+          <h1 className="text-h1 text-text-primary">Documents</h1>
+          <p className="text-body-sm text-text-secondary mt-1">{documents.length} document{documents.length !== 1 ? 's' : ''} stored</p>
         </div>
-        {vehicles.length > 0 && (
-          <button
-            onClick={openAddModal}
-            className="flex h-10 items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 px-5 text-sm font-semibold text-white hover:from-violet-500 hover:via-indigo-500 hover:to-blue-500 transition-all cursor-pointer font-sans shadow-lg shadow-indigo-500/20 hover:scale-[1.02] transform duration-200"
-          >
-            <Plus className="h-4 w-4 mr-1.5" />
-            Add Document
-          </button>
-        )}
+        <Button onClick={openAddDrawer}><Plus className="size-4" /> Upload Document</Button>
       </div>
 
-      <div className="flex flex-col md:flex-row md:items-center gap-4 bg-slate-900/40 border border-white/5 p-4 rounded-2xl backdrop-blur-lg">
-        <div className="relative flex-1 font-medium">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-          <Input
-            type="text"
-            placeholder="Search documents by name..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 h-10 bg-slate-900 border-white/10 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all w-full"
-          />
+      {/* Filters */}
+      <div className="flex flex-col md:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-text-tertiary" />
+          <Input placeholder="Search documents..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-        <div className="flex flex-wrap gap-2">
-          {(['ALL', 'REGISTRATION', 'INSURANCE', 'PUC', 'WARRANTY', 'OTHER'] as const).map((type) => (
-            <button
-              key={type}
-              onClick={() => setFilterType(type)}
-              className={`px-3.5 py-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer font-sans ${
-                filterType === type
-                  ? 'bg-gradient-to-r from-violet-600 to-indigo-600 border-violet-500 text-white shadow-md shadow-violet-500/20'
-                  : 'bg-slate-900/60 border-white/5 text-slate-400 hover:text-white hover:border-white/25'
-              }`}
-            >
-              {type === 'ALL' ? 'All Types' : type}
-            </button>
-          ))}
-        </div>
+        <Select className="w-full md:w-48" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
+          <option value="ALL">All Types</option>
+          <option value="REGISTRATION">Registration</option>
+          <option value="INSURANCE">Insurance</option>
+          <option value="PUC">PUC</option>
+          <option value="LICENSE">License</option>
+          <option value="WARRANTY">Warranty</option>
+          <option value="RECEIPT">Receipt</option>
+          <option value="OTHER">Other</option>
+        </Select>
       </div>
 
-      {filteredDocs.length === 0 ? (
-        <div className="text-center py-20 border border-dashed border-white/10 rounded-2xl text-slate-500 text-sm font-medium">
-          No documents found matching filters.
-        </div>
+      {/* Document Grid */}
+      {filtered.length === 0 ? (
+        <EmptyState
+          icon={<FileText className="size-6" />}
+          title="No documents found"
+          description={documents.length === 0 ? "Upload your first document to keep records safe." : "Try adjusting your search or filter."}
+          action={documents.length === 0 && <Button onClick={openAddDrawer}><Plus className="size-4" /> Upload</Button>}
+        />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredDocs.map((doc) => {
-            const matchedVehicle = vehicles.find((v) => v.id === doc.vehicleId)
-            return (
-              <Card
-                key={doc.id}
-                className="border border-white/5 bg-slate-900/40 backdrop-blur-lg hover:border-violet-500/20 transition-all flex flex-col justify-between rounded-2xl relative overflow-hidden group"
-              >
-                <CardHeader className="pb-3 flex flex-row items-start justify-between">
-                  <div className="space-y-1">
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border border-violet-500/30 text-violet-400 bg-violet-500/10`}
-                    >
-                      {doc.type}
-                    </span>
-                    <CardTitle className="text-base font-semibold text-white mt-1.5 truncate max-w-[180px]">
-                      {doc.name}
-                    </CardTitle>
-                    {matchedVehicle && (
-                      <CardDescription className="text-xs text-slate-400 font-medium">
-                        For {matchedVehicle.name}
-                      </CardDescription>
-                    )}
+          {filtered.map((doc, i) => (
+            <motion.div
+              key={doc.id}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: i * 0.04 }}
+              className="group rounded-[var(--radius-lg)] border border-border-subtle bg-surface-1 p-4 space-y-3 transition-all duration-200 hover:border-accent/30"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="size-10 rounded-[var(--radius-md)] bg-surface-2 flex items-center justify-center flex-shrink-0">
+                    <FileText className="size-5 text-text-tertiary" />
                   </div>
-                  <div className="p-2 bg-slate-800 rounded-lg text-slate-400">
-                    <FileText className="h-5 w-5" />
+                  <div className="min-w-0">
+                    <h3 className="text-body-sm font-semibold text-text-primary truncate">{doc.name}</h3>
+                    <p className="text-caption text-text-tertiary">{vehicleMap.get(doc.vehicleId) || 'Vehicle'}</p>
                   </div>
-                </CardHeader>
-                <CardContent className="pb-4 text-xs space-y-2 text-slate-400 font-medium">
-                  <div className="flex justify-between">
-                    <span>Uploaded:</span>
-                    <span className="text-slate-200">{new Date(doc.createdAt).toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Size:</span>
-                    <span className="text-slate-200">{(doc.fileSize / 1024 / 1024).toFixed(2)} MB</span>
-                  </div>
-                  {doc.expiryDate && (
-                    <div className="flex justify-between">
-                      <span>Expires:</span>
-                      <span className="text-slate-200 font-semibold">
-                        {new Date(doc.expiryDate).toLocaleDateString()}
-                      </span>
-                    </div>
-                  )}
-                </CardContent>
-                <CardFooter className="border-t border-white/5 pt-3 flex justify-between">
-                  <a
-                    href={doc.downloadUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs font-semibold text-violet-400 hover:text-violet-300 hover:underline"
-                  >
-                    Download Document
-                  </a>
-                  <button
-                    onClick={() => handleDelete(doc.id, doc.vehicleId)}
-                    className="p-1 rounded text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all cursor-pointer"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </CardFooter>
-              </Card>
-            )
-          })}
+                </div>
+                <Button variant="danger" size="icon-sm" onClick={() => handleDelete(doc.id)} className="opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Trash2 className="size-3" />
+                </Button>
+              </div>
+              <div className="flex items-center justify-between">
+                <Badge variant={typeColors[doc.type] || 'default'} size="sm">{doc.type}</Badge>
+                {doc.expiryDate && (
+                  <span className="text-caption text-text-tertiary">
+                    Exp: {new Date(doc.expiryDate).toLocaleDateString()}
+                  </span>
+                )}
+              </div>
+            </motion.div>
+          ))}
         </div>
       )}
 
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
-          <Card className="w-full max-w-md border border-white/5 bg-slate-950/90 backdrop-blur-xl relative animate-fade-in-up rounded-2xl shadow-2xl">
-            <button
-              onClick={() => setIsModalOpen(false)}
-              className="absolute right-4 top-4 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer font-sans"
-            >
-              <X className="h-5 w-5" />
-            </button>
-            <form onSubmit={handleSubmit}>
-              <CardHeader>
-                <CardTitle>Upload Document</CardTitle>
-                <CardDescription>Vault your certificates securely in the cloud.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 font-sans">
-                {error && <div className="rounded-lg bg-red-500/10 border border-red-500/30 p-3 text-sm text-red-400">{error}</div>}
-                <div className="space-y-2">
-                  <Label htmlFor="u-file">Upload Certificate File *</Label>
-                  <div className="flex items-center space-x-4">
-                    <Input id="u-file-input" type="file" required onChange={handleFileUpload} className="hidden" />
-                    <button
-                      type="button"
-                      disabled={uploading}
-                      onClick={() => document.getElementById('u-file-input')?.click()}
-                      className="flex h-10 items-center justify-center rounded-xl bg-slate-900 border border-white/10 px-4 text-xs font-semibold text-white hover:bg-slate-800 transition-all cursor-pointer disabled:opacity-50 font-sans"
-                    >
-                      {uploading ? (
-                        <>
-                          <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin text-violet-400" />
-                          <span>Uploading...</span>
-                        </>
-                      ) : (
-                        <span>Choose File</span>
-                      )}
-                    </button>
-                    {docFileUrl && <span className="text-xs text-emerald-400 font-medium">File Uploaded!</span>}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="u-vehicle">Select Associated Vehicle *</Label>
-                  <Select
-                    id="u-vehicle"
-                    required
-                    value={vehicleId}
-                    onChange={(e) => setVehicleId(e.target.value)}
-                    className="h-10 bg-slate-900 border-white/10 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all w-full"
-                  >
-                    {vehicles.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.name} ({v.brand})
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="u-type">Document Type *</Label>
-                    <Select
-                      id="u-type"
-                      value={docType}
-                      onChange={(e) => setDocType(e.target.value)}
-                      className="h-10 bg-slate-900 border-white/10 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all w-full"
-                    >
-                      <option value="REGISTRATION">Registration (RC)</option>
-                      <option value="INSURANCE">Insurance Policy</option>
-                      <option value="PUC">PUC Certificate</option>
-                      <option value="WARRANTY">Warranty Document</option>
-                      <option value="OTHER">Other Documents</option>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="u-name">Document Name *</Label>
-                    <Input
-                      id="u-name"
-                      required
-                      value={docName}
-                      onChange={(e) => setDocName(e.target.value)}
-                      placeholder="e.g. RC Smartcard"
-                      className="h-10 bg-slate-900 border-white/10 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all w-full"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="u-exp">Expiration Date</Label>
-                  <Input
-                    id="u-exp"
-                    type="date"
-                    value={docExpiryDate}
-                    onChange={(e) => setDocExpiryDate(e.target.value)}
-                    className="h-10 bg-slate-900 border-white/10 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all w-full"
-                  />
-                </div>
-              </CardContent>
-              <CardFooter className="border-t border-white/5 pt-4 flex justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="flex h-10 items-center justify-center rounded-xl bg-slate-900 border border-white/10 px-4 text-sm font-semibold text-slate-400 hover:bg-slate-800 hover:text-white transition-all cursor-pointer font-sans"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading || uploading}
-                  className="flex h-10 items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 px-5 text-sm font-semibold text-white hover:from-violet-500 hover:via-indigo-500 hover:to-blue-500 transition-all cursor-pointer disabled:opacity-50 font-sans shadow-lg shadow-indigo-500/20"
-                >
-                  {loading ? 'Saving...' : 'Save Document'}
-                </button>
-              </CardFooter>
-            </form>
-          </Card>
-        </div>
-      )}
+      {/* Upload Drawer */}
+      <Drawer open={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} title="Upload Document" description="Add a document to your vault.">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && <div className="rounded-[var(--radius-md)] bg-danger-muted border border-danger/20 p-3 text-body-sm text-danger">{error}</div>}
+
+          <div className="space-y-2">
+            <Label>Vehicle *</Label>
+            <Select value={vehicleId} onChange={(e) => setVehicleId(e.target.value)}>
+              {vehicles.map((v: any) => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Type *</Label>
+            <Select value={docType} onChange={(e) => setDocType(e.target.value)}>
+              <option value="REGISTRATION">Registration</option><option value="INSURANCE">Insurance</option>
+              <option value="PUC">PUC</option><option value="LICENSE">License</option>
+              <option value="WARRANTY">Warranty</option><option value="RECEIPT">Receipt</option><option value="OTHER">Other</option>
+            </Select>
+          </div>
+          <div className="space-y-2"><Label>Name *</Label><Input required value={docName} onChange={(e) => setDocName(e.target.value)} placeholder="Document name" /></div>
+          <div className="space-y-2">
+            <Label>File *</Label>
+            <Input type="file" accept="image/*,.pdf,.doc,.docx" onChange={handleFileUpload} />
+            {uploading && <p className="text-caption text-accent flex items-center gap-1"><Loader2 className="size-3 animate-spin" /> Uploading...</p>}
+            {docFileUrl && <p className="text-caption text-success">Uploaded ({(docFileSize / 1024).toFixed(0)} KB)</p>}
+          </div>
+          <div className="space-y-2"><Label>Expiry Date</Label><Input type="date" value={docExpiryDate} onChange={(e) => setDocExpiryDate(e.target.value)} /></div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-border-subtle">
+            <Button type="button" variant="secondary" onClick={() => setIsDrawerOpen(false)}>Cancel</Button>
+            <Button type="submit" loading={loading || uploading}>Upload</Button>
+          </div>
+        </form>
+      </Drawer>
     </div>
   )
 }

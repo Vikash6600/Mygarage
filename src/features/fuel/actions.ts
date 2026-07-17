@@ -74,3 +74,17 @@ export async function getFuelLogsAction(vehicleId: string) {
     return { success: false, error: error.message || 'Failed to fetch fuel logs' }
   }
 }
+
+export async function fetchCurrentFuelPriceAction(city: string, fuelType: string) {
+  try {
+    const fType = fuelType.toLowerCase() === 'diesel' ? 'diesel' : 'petrol'
+    const url = `https://www.goodreturns.in/${fType}-price-in-${city.toLowerCase().replace(/\s+/g, '-')}.html`
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, next: { revalidate: 3600 } })
+    const text = await res.text()
+    const match = text.match(/Rs\.?\s*([\d.]+)\/Ltr/i) || text.match(/Rs\.?\s*([\d.]+)\s*per litre/i);
+    if (match) return { success: true, price: Number(match[1]) }
+    return { success: false, error: 'Could not fetch price. Please enter manually.' }
+  } catch (error: any) {
+    return { success: false, error: 'Failed to fetch price.' }
+  }
+}

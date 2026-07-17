@@ -18,6 +18,11 @@ export class DashboardService {
     const totalExpenseCost = expenses.reduce((sum, exp) => sum + Number(exp.amount), 0)
     const totalExpenses = totalMaintenanceCost + totalExpenseCost
 
+    const logsWithMileage = fuelLogs.filter(l => l.mileage && Number(l.mileage) > 0)
+    const avgMileage = logsWithMileage.length > 0
+      ? logsWithMileage.reduce((sum, l) => sum + Number(l.mileage), 0) / logsWithMileage.length
+      : 0
+
     const categoryMap: Record<string, number> = {
       FUEL: totalFuelCost,
       MAINTENANCE: totalMaintenanceCost,
@@ -42,9 +47,17 @@ export class DashboardService {
       monthlyMap[monthKey] = (monthlyMap[monthKey] || 0) + item.cost
     }
 
-    const monthlyExpenseTrend = Object.entries(monthlyMap)
+    let monthlyExpenseTrend = Object.entries(monthlyMap)
       .map(([month, amount]) => ({ month, amount }))
+      .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime())
       .slice(-6)
+
+    if (monthlyExpenseTrend.length === 1) {
+      const d = new Date(monthlyExpenseTrend[0].month)
+      d.setMonth(d.getMonth() - 1)
+      const prevMonth = d.toLocaleString('default', { month: 'short', year: 'numeric' })
+      monthlyExpenseTrend.unshift({ month: prevMonth, amount: 0 })
+    }
 
     const upcomingExpiries: DashboardStats['upcomingExpiries'] = []
     const vehicleMap = new Map(vehicles.map((v) => [v.id, v.name]))
@@ -113,6 +126,7 @@ export class DashboardService {
       totalExpenses,
       totalFuelCost,
       totalFuelLitres,
+      avgMileage,
       activeVehiclesCount,
       categoryExpenses,
       monthlyExpenseTrend,

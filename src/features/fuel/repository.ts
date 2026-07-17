@@ -4,39 +4,62 @@ import { FuelLog } from '@prisma/client'
 
 export class FuelLogRepository {
   static async create(userId: string, data: CreateFuelLogInput, mileage: number | null, costPerKm: number | null): Promise<FuelLog> {
-    return prisma.fuelLog.create({
-      data: {
-        vehicleId: data.vehicleId,
-        date: data.date,
-        odometer: data.odometer,
-        fuelStation: data.fuelStation || null,
-        fuelType: data.fuelType,
-        litres: data.litres,
-        pricePerLitre: data.pricePerLitre,
-        totalCost: data.totalCost,
-        mileage,
-        costPerKm,
-      },
+    return prisma.$transaction(async (tx) => {
+      const log = await tx.fuelLog.create({
+        data: {
+          vehicleId: data.vehicleId,
+          date: data.date,
+          odometer: data.odometer,
+          fuelStation: data.fuelStation || null,
+          fuelType: data.fuelType,
+          litres: data.litres,
+          pricePerLitre: data.pricePerLitre,
+          totalCost: data.totalCost,
+          mileage,
+          costPerKm,
+        },
+      })
+
+      const vehicle = await tx.vehicle.findUnique({ where: { id: data.vehicleId }, select: { currentOdometer: true } })
+      if (vehicle && data.odometer > vehicle.currentOdometer) {
+        await tx.vehicle.update({
+          where: { id: data.vehicleId },
+          data: { currentOdometer: data.odometer },
+        })
+      }
+
+      return log
     })
   }
 
   static async update(userId: string, id: string, data: Partial<CreateFuelLogInput> & { mileage?: number | null; costPerKm?: number | null }): Promise<FuelLog> {
-    return prisma.fuelLog.update({
-      where: {
-        id,
-        vehicle: { userId },
-      },
-      data: {
-        date: data.date,
-        odometer: data.odometer,
-        fuelStation: data.fuelStation,
-        fuelType: data.fuelType,
-        litres: data.litres,
-        pricePerLitre: data.pricePerLitre,
-        totalCost: data.totalCost,
-        mileage: data.mileage,
-        costPerKm: data.costPerKm,
-      },
+    return prisma.$transaction(async (tx) => {
+      const log = await tx.fuelLog.update({
+        where: { id, vehicle: { userId } },
+        data: {
+          date: data.date,
+          odometer: data.odometer,
+          fuelStation: data.fuelStation,
+          fuelType: data.fuelType,
+          litres: data.litres,
+          pricePerLitre: data.pricePerLitre,
+          totalCost: data.totalCost,
+          mileage: data.mileage,
+          costPerKm: data.costPerKm,
+        },
+      })
+
+      if (data.odometer) {
+        const vehicle = await tx.vehicle.findUnique({ where: { id: log.vehicleId }, select: { currentOdometer: true } })
+        if (vehicle && data.odometer > vehicle.currentOdometer) {
+          await tx.vehicle.update({
+            where: { id: log.vehicleId },
+            data: { currentOdometer: data.odometer },
+          })
+        }
+      }
+
+      return log
     })
   }
 

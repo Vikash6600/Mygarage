@@ -3,10 +3,13 @@
 import React, { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { motion } from 'framer-motion'
 import { resetPassword } from '@/features/auth/actions'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
+import { ArrowLeft, CheckCircle2 } from 'lucide-react'
+import { RoyalEnfieldLogo } from '@/components/RoyalEnfieldLogo'
 
 function ResetPasswordForm() {
   const router = useRouter()
@@ -53,23 +56,34 @@ function ResetPasswordForm() {
   }
 
   return (
-    <Card className="border border-white/10 bg-slate-900/40 backdrop-blur-lg">
+    <div className="rounded-[var(--radius-xl)] border border-border-subtle bg-surface-1 overflow-hidden">
       {success ? (
-        <div className="p-6 text-center space-y-4">
-          <div className="text-emerald-400 text-lg font-semibold animate-pulse">Password Reset Successful!</div>
-          <p className="text-sm text-slate-300">Redirecting you to the login screen...</p>
-        </div>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="p-8 text-center space-y-4"
+        >
+          <div className="size-14 rounded-full bg-success-muted flex items-center justify-center mx-auto">
+            <CheckCircle2 className="size-6 text-success" />
+          </div>
+          <div className="text-h3 text-success">Password Reset!</div>
+          <p className="text-body-sm text-text-secondary">Redirecting you to the login screen...</p>
+        </motion.div>
       ) : (
         <form onSubmit={handleSubmit}>
-          <CardHeader>
-            <CardTitle>Reset Password</CardTitle>
-            <CardDescription>Enter your new password below.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+          <div className="p-6 space-y-1">
+            <h2 className="text-h2 text-text-primary">Reset Password</h2>
+            <p className="text-body-sm text-text-secondary">Enter your new password below.</p>
+          </div>
+          <div className="px-6 pb-4 space-y-4">
             {error && (
-              <div className="rounded-lg bg-red-500/10 border border-red-500/30 p-3 text-sm text-red-400">
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-[var(--radius-md)] bg-danger-muted border border-danger/20 p-3 text-body-sm text-danger"
+              >
                 {error}
-              </div>
+              </motion.div>
             )}
             <div className="space-y-2">
               <Label htmlFor="password">New Password</Label>
@@ -80,6 +94,7 @@ function ResetPasswordForm() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                className="h-11"
               />
             </div>
             <div className="space-y-2">
@@ -91,43 +106,48 @@ function ResetPasswordForm() {
                 placeholder="••••••••"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                className="h-11"
               />
             </div>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex h-10 items-center justify-center rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all disabled:opacity-50 cursor-pointer"
-            >
-              {loading ? 'Resetting password...' : 'Reset Password'}
-            </button>
-            <p className="text-xs text-slate-400 text-center">
+          </div>
+          <div className="px-6 pb-6 space-y-4">
+            <Button type="submit" loading={loading} size="lg" className="w-full">
+              Reset Password
+            </Button>
+            <p className="text-caption text-text-tertiary text-center">
               Remembered your password?{' '}
-              <Link href="/auth/login" className="text-blue-400 hover:underline font-medium">
-                Log In
+              <Link href="/auth/login" className="text-accent hover:text-accent-hover font-medium transition-colors">
+                Sign In
               </Link>
             </p>
-          </CardFooter>
+          </div>
         </form>
       )}
-    </Card>
+    </div>
   )
 }
 
 export default function ResetPasswordPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black px-4 py-12 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md space-y-8">
-        <div className="text-center">
-          <h2 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">
+    <div className="flex min-h-screen items-center justify-center bg-surface-0 px-4 py-12">
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="w-full max-w-md space-y-6"
+      >
+        <div className="flex items-center gap-3 mb-2">
+          <div className="flex items-center justify-center">
+            <RoyalEnfieldLogo className="w-10 h-10" />
+          </div>
+          <span className="text-xl font-bold tracking-tight text-text-primary font-[family-name:var(--font-display)]">
             MyGarage
-          </h2>
+          </span>
         </div>
-        <Suspense fallback={<div className="text-slate-400 text-center">Loading reset parameters...</div>}>
+        <Suspense fallback={<div className="text-text-tertiary text-center p-8">Loading...</div>}>
           <ResetPasswordForm />
         </Suspense>
-      </div>
+      </motion.div>
     </div>
   )
 }

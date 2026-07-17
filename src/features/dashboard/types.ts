@@ -2,6 +2,7 @@ export interface DashboardStats {
   totalExpenses: number
   totalFuelCost: number
   totalFuelLitres: number
+  avgMileage: number
   activeVehiclesCount: number
   categoryExpenses: { category: string; value: number }[]
   monthlyExpenseTrend: { month: string; amount: number }[]

@@ -1,11 +1,22 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useTransition } from 'react'
+import { RoyalEnfieldLogo } from '@/components/RoyalEnfieldLogo'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { motion } from 'framer-motion'
 import { registerUser } from '@/features/auth/actions'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
+import { Bike, Car, Droplet, Wrench, Shield, CheckCircle2 } from 'lucide-react'
+
+const features = [
+  { icon: Car, label: 'Vehicle Management', description: 'Complete lifecycle tracking' },
+  { icon: Droplet, label: 'Fuel Analytics', description: 'Efficiency insights' },
+  { icon: Wrench, label: 'Service Records', description: 'Maintenance history' },
+  { icon: Shield, label: 'Document Vault', description: 'Secure storage' },
+]
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -43,108 +54,131 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-950">
-      {/* Left Column - Image & Features (Hidden on mobile) */}
-      <div className="relative hidden w-1/2 lg:flex flex-col justify-between p-12 overflow-hidden border-r border-white/5">
+    <div className="flex min-h-screen bg-surface-0">
+      {/* Left Column — Visual */}
+      <div className="relative hidden w-1/2 lg:flex flex-col justify-between p-10 overflow-hidden border-r border-border-subtle">
         <div className="absolute inset-0 z-0">
           <img
             src="/garage_login_bg.png"
             alt="Garage background"
-            className="object-cover w-full h-full filter brightness-75 transition-all duration-1000 hover:scale-105"
+            className="object-cover w-full h-full brightness-[0.4] saturate-[0.6]"
           />
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-950/80 via-slate-950/40 to-indigo-950/60 mix-blend-multiply" />
-          <div className="absolute inset-0 bg-radial-gradient(circle at center, transparent 30%, rgba(2, 6, 23, 0.8) 100%)" />
+          <div className="absolute inset-0 bg-gradient-to-br from-surface-0/90 via-surface-0/50 to-transparent" />
         </div>
 
-        <div className="relative z-10 flex items-center space-x-3">
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
-            <span className="font-extrabold text-white text-base">M</span>
+        <motion.div
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="relative z-10 flex items-center gap-3"
+        >
+          <div className="flex items-center justify-center">
+            <RoyalEnfieldLogo className="w-12 h-12" />
           </div>
-          <span className="text-xl font-bold tracking-tight text-white bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-300">
+          <span className="text-xl font-bold tracking-tight text-text-primary font-[family-name:var(--font-display)]">
             MyGarage
           </span>
-        </div>
+        </motion.div>
 
-        <div className="relative z-10 space-y-6">
-          <div className="space-y-2">
-            <h1 className="text-4xl font-extrabold tracking-tight text-white leading-tight">
-              Manage your garage <br />
-              <span className="bg-gradient-to-r from-violet-400 via-indigo-400 to-blue-400 bg-clip-text text-transparent">
-                with modern precision.
-              </span>
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="relative z-10 space-y-8"
+        >
+          <div className="space-y-3">
+            <h1 className="text-display text-text-primary max-w-md">
+              Start your
+              <br />
+              <span className="text-accent">precision journey.</span>
             </h1>
-            <p className="text-base text-slate-400 max-w-md">
-              A comprehensive portal to track maintenance logs, fuel efficiency, recurring expenses, and crucial documents.
+            <p className="text-body text-text-secondary max-w-md">
+              Create your garage and begin tracking every aspect of your vehicles with surgical precision.
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
-            <div className="flex items-center space-x-3">
-              <div className="h-2 w-2 rounded-full bg-violet-500 shadow-[0_0_8px_#8b5cf6]" />
-              <span className="text-sm font-semibold text-slate-300">Fuel Analytics</span>
-            </div>
-            <div className="flex items-center space-x-3">
-              <div className="h-2 w-2 rounded-full bg-indigo-500 shadow-[0_0_8px_#6366f1]" />
-              <span className="text-sm font-semibold text-slate-300">Maintenance Logs</span>
-            </div>
-            <div className="flex items-center space-x-3">
-              <div className="h-2 w-2 rounded-full bg-blue-500 shadow-[0_0_8px_#3b82f6]" />
-              <span className="text-sm font-semibold text-slate-300">Expense Reports</span>
-            </div>
-            <div className="flex items-center space-x-3">
-              <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
-              <span className="text-sm font-semibold text-slate-300">Secure Vault</span>
-            </div>
+          <div className="grid grid-cols-2 gap-3">
+            {features.map((feature, i) => {
+              const Icon = feature.icon
+              return (
+                <motion.div
+                  key={feature.label}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.3 + i * 0.08 }}
+                  className="flex items-start gap-3 p-3 rounded-[var(--radius-md)] bg-surface-1/60 border border-border-subtle backdrop-blur-sm"
+                >
+                  <div className="size-8 rounded-[var(--radius-sm)] bg-accent-muted flex items-center justify-center flex-shrink-0">
+                    <Icon className="size-4 text-accent" />
+                  </div>
+                  <div>
+                    <div className="text-[13px] font-semibold text-text-primary">{feature.label}</div>
+                    <div className="text-[11px] text-text-tertiary">{feature.description}</div>
+                  </div>
+                </motion.div>
+              )
+            })}
           </div>
-        </div>
+        </motion.div>
 
-        <div className="relative z-10 text-xs text-slate-500 font-medium">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6 }}
+          className="relative z-10 text-caption text-text-tertiary"
+        >
           © {new Date().getFullYear()} MyGarage. All rights reserved.
-        </div>
+        </motion.div>
       </div>
 
-      {/* Right Column - Registration Form */}
+      {/* Right Column — Form */}
       <div className="relative w-full lg:w-1/2 flex flex-col justify-center px-6 py-12 sm:px-12 lg:px-20 xl:px-24">
-        {/* Decorative background ambient glows */}
-        <div className="absolute top-1/4 right-0 w-96 h-96 bg-violet-600/5 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-1/4 left-0 w-96 h-96 bg-indigo-600/5 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="w-full max-w-md mx-auto space-y-8 relative z-10">
-          <div className="flex flex-col space-y-2 text-left">
-            {/* Logo for mobile */}
-            <div className="flex items-center space-x-2 lg:hidden mb-4">
-              <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center">
-                <span className="font-extrabold text-white text-xs">M</span>
-              </div>
-              <span className="text-lg font-bold text-white">MyGarage</span>
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="w-full max-w-md mx-auto space-y-8"
+        >
+          <div className="flex items-center gap-2 lg:hidden mb-4">
+            <div className="flex items-center justify-center">
+              <RoyalEnfieldLogo className="w-8 h-8" />
             </div>
-            <h2 className="text-3xl font-bold tracking-tight text-white">Create account</h2>
-            <p className="text-sm text-slate-400">
-              Sign up to start tracking your vehicles with precision
+            <span className="text-lg font-bold text-text-primary font-[family-name:var(--font-display)]">MyGarage</span>
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-h1 text-text-primary">Create account</h2>
+            <p className="text-body-sm text-text-secondary">
+              Sign up to start tracking your vehicles
             </p>
           </div>
 
           {success ? (
-            <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-6 text-center space-y-3">
-              <div className="text-emerald-400 text-lg font-semibold animate-pulse">
-                Registration Successful!
-              </div>
-              <p className="text-sm text-slate-300">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="rounded-[var(--radius-lg)] bg-success-muted border border-success/20 p-6 text-center space-y-3"
+            >
+              <CheckCircle2 className="size-10 text-success mx-auto" />
+              <div className="text-h3 text-success">Registration Successful!</div>
+              <p className="text-body-sm text-text-secondary">
                 Redirecting you to the login screen...
               </p>
-            </div>
+            </motion.div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
-                <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 p-4 text-sm text-rose-400 animate-fade-in">
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="rounded-[var(--radius-md)] bg-danger-muted border border-danger/20 p-4 text-body-sm text-danger"
+                >
                   {error}
-                </div>
+                </motion.div>
               )}
 
-              <div className="space-y-1">
-                <Label htmlFor="name" className="text-slate-300 font-medium text-xs uppercase tracking-wider">
-                  Full Name
-                </Label>
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name</Label>
                 <Input
                   id="name"
                   type="text"
@@ -152,14 +186,11 @@ export default function RegisterPage() {
                   placeholder="John Doe"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="h-10 bg-slate-900/60 border-slate-800 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all"
                 />
               </div>
 
-              <div className="space-y-1">
-                <Label htmlFor="email" className="text-slate-300 font-medium text-xs uppercase tracking-wider">
-                  Email Address
-                </Label>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email Address</Label>
                 <Input
                   id="email"
                   type="email"
@@ -167,57 +198,52 @@ export default function RegisterPage() {
                   placeholder="name@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="h-10 bg-slate-900/60 border-slate-800 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all"
                 />
               </div>
 
-              <div className="space-y-1">
-                <Label htmlFor="password" className="text-slate-300 font-medium text-xs uppercase tracking-wider">
-                  Password
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="h-10 bg-slate-900/60 border-slate-800 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    required
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirm</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    required
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                  />
+                </div>
               </div>
 
-              <div className="space-y-1">
-                <Label htmlFor="confirmPassword" className="text-slate-300 font-medium text-xs uppercase tracking-wider">
-                  Confirm Password
-                </Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="h-10 bg-slate-900/60 border-slate-800 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all"
-                />
-              </div>
-
-              <button
+              <Button
                 type="submit"
-                disabled={loading}
-                className="w-full flex h-11 items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 px-4 text-sm font-semibold text-white hover:from-violet-500 hover:via-indigo-500 hover:to-blue-500 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-300 disabled:opacity-50 cursor-pointer transform hover:-translate-y-[1px] active:translate-y-0"
+                loading={loading}
+                size="lg"
+                className="w-full"
               >
-                {loading ? 'Creating Account...' : 'Register'}
-              </button>
+                Create Account
+              </Button>
 
-              <p className="text-sm text-slate-400 text-center pt-2">
+              <p className="text-body-sm text-text-secondary text-center pt-2">
                 Already have an account?{' '}
-                <Link href="/auth/login" className="text-violet-400 hover:text-violet-300 font-semibold hover:underline transition-all">
-                  Log In
+                <Link href="/auth/login" className="text-accent hover:text-accent-hover font-semibold transition-colors">
+                  Sign In
                 </Link>
               </p>
             </form>
           )}
-        </div>
+        </motion.div>
       </div>
     </div>
   )

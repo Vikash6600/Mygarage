@@ -47,9 +47,9 @@ export class SupabaseStorageService implements IStorageService {
 
       await LoggerService.info('FILE_UPLOADED', { path, bucket })
       return path
-    } catch (err) {
+    } catch (err: any) {
       await LoggerService.error('FILE_UPLOAD_FAILED', err)
-      throw new InternalServerError('Failed to upload file.')
+      throw new InternalServerError(`Failed to upload file: ${err.message || 'Unknown error'}`)
     }
   }
 

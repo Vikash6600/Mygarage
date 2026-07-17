@@ -3,29 +3,26 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ArrowLeft,
-  Plus,
-  Trash2,
-  Calendar,
-  Gauge,
-  Wrench,
-  Droplet,
-  FileText,
-  Landmark,
-  X,
-  Loader2,
-  Sparkles,
-  Receipt,
+  ArrowLeft, Plus, Trash2, Calendar, Gauge, Wrench, Droplet, FileText, Landmark, Loader2, Receipt, Edit3, MapPin, Eye
 } from 'lucide-react'
-import { createFuelLogAction, deleteFuelLogAction } from '@/features/fuel/actions'
-import { createMaintenanceLogAction, deleteMaintenanceLogAction } from '@/features/maintenance/actions'
+import { createFuelLogAction, deleteFuelLogAction, fetchCurrentFuelPriceAction } from '@/features/fuel/actions'
+import { createMaintenanceLogAction, deleteMaintenanceLogAction, updateMaintenanceLogAction } from '@/features/maintenance/actions'
 import { createExpenseAction, deleteExpenseAction } from '@/features/expenses/actions'
 import { createDocumentAction, deleteDocumentAction } from '@/features/documents/actions'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { StatCard } from '@/components/ui/stat-card'
+import { Tabs } from '@/components/ui/tabs'
+import { Drawer } from '@/components/ui/drawer'
+import { DataTable } from '@/components/ui/data-table'
+import { EmptyState } from '@/components/ui/empty-state'
+import dynamic from 'next/dynamic'
+// 3D features have been temporarily removed and will be added later.
 
 interface VehicleDetailClientPageProps {
   vehicle: any
@@ -43,28 +40,35 @@ export function VehicleDetailClientPage({
   documents: initialDocuments,
 }: VehicleDetailClientPageProps) {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<'overview' | 'fuel' | 'maintenance' | 'expense' | 'document'>('overview')
+  const [activeTab, setActiveTab] = useState('overview')
   const [fuelLogs, setFuelLogs] = useState(initialFuelLogs)
   const [maintenanceLogs, setMaintenanceLogs] = useState(initialMaintenanceLogs)
   const [expenses, setExpenses] = useState(initialExpenses)
   const [documents, setDocuments] = useState(initialDocuments)
 
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [modalType, setModalType] = useState<'fuel' | 'maintenance' | 'expense' | 'document' | null>(null)
+  const maxFuelOdometer = fuelLogs.reduce((max, log) => Math.max(max, Number(log.odometer)), 0)
+  const maxMaintenanceOdometer = maintenanceLogs.reduce((max, log) => Math.max(max, Number(log.odometer)), 0)
+  const displayOdometer = Math.max(vehicle.currentOdometer, maxFuelOdometer, maxMaintenanceOdometer)
+
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+  const [drawerType, setDrawerType] = useState<'fuel' | 'maintenance' | 'expense' | 'document' | null>(null)
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [editingLogId, setEditingLogId] = useState<string | null>(null)
 
+  // Form state
   const [commonDate, setCommonDate] = useState(new Date().toISOString().split('T')[0])
-
-  const [fuelOdometer, setFuelOdometer] = useState(vehicle.currentOdometer.toString())
+  const [fuelOdometer, setFuelOdometer] = useState(displayOdometer.toString())
   const [fuelStation, setFuelStation] = useState('')
   const [fuelType, setFuelType] = useState(vehicle.fuelType)
   const [fuelLitres, setFuelLitres] = useState('')
   const [fuelPricePerLitre, setFuelPricePerLitre] = useState('')
   const [fuelTotalCost, setFuelTotalCost] = useState('')
+  const [fuelCity, setFuelCity] = useState('Chennai')
+  const [fetchingPrice, setFetchingPrice] = useState(false)
 
-  const [mOdometer, setMOdometer] = useState(vehicle.currentOdometer.toString())
+  const [mOdometer, setMOdometer] = useState(displayOdometer.toString())
   const [mWorkshop, setMWorkshop] = useState('')
   const [mMechanic, setMMechanic] = useState('')
   const [mLabourCost, setMLabourCost] = useState('0')
@@ -73,12 +77,10 @@ export function VehicleDetailClientPage({
   const [mDescription, setMDescription] = useState('')
   const [mNotes, setMNotes] = useState('')
   const [mBillUrl, setMBillUrl] = useState('')
-
   const [expCategory, setExpCategory] = useState('TOLL')
   const [expDescription, setExpDescription] = useState('')
   const [expAmount, setExpAmount] = useState('')
   const [expBillUrl, setExpBillUrl] = useState('')
-
   const [docType, setDocType] = useState('REGISTRATION')
   const [docName, setDocName] = useState('')
   const [docFileUrl, setDocFileUrl] = useState('')
@@ -86,1038 +88,473 @@ export function VehicleDetailClientPage({
   const [docFileSize, setDocFileSize] = useState(0)
   const [docExpiryDate, setDocExpiryDate] = useState('')
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(amount)
-  }
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount)
 
   const handleFuelCalc = (litresVal: string, priceVal: string) => {
-    setFuelLitres(litresVal)
-    setFuelPricePerLitre(priceVal)
-    const l = Number(litresVal)
-    const p = Number(priceVal)
-    if (l > 0 && p > 0) {
-      setFuelTotalCost((l * p).toFixed(2))
-    }
+    setFuelLitres(litresVal); setFuelPricePerLitre(priceVal)
+    const l = Number(litresVal), p = Number(priceVal)
+    if (l > 0 && p > 0) setFuelTotalCost((l * p).toFixed(2))
   }
 
   const handleMaintenanceCalc = (labourVal: string, partsVal: string) => {
-    setMLabourCost(labourVal)
-    setMPartsCost(partsVal)
+    setMLabourCost(labourVal); setMPartsCost(partsVal)
     setMTotalCost((Number(labourVal || 0) + Number(partsVal || 0)).toString())
   }
 
-  const openFormModal = (type: 'fuel' | 'maintenance' | 'expense' | 'document') => {
-    setModalType(type)
-    setError(null)
-    setCommonDate(new Date().toISOString().split('T')[0])
-    if (type === 'fuel') {
-      setFuelOdometer(vehicle.currentOdometer.toString())
-      setFuelStation('')
-      setFuelType(vehicle.fuelType)
-      setFuelLitres('')
-      setFuelPricePerLitre('')
-      setFuelTotalCost('')
-    } else if (type === 'maintenance') {
-      setMOdometer(vehicle.currentOdometer.toString())
-      setMWorkshop('')
-      setMMechanic('')
-      setMLabourCost('0')
-      setMPartsCost('0')
-      setMTotalCost('0')
-      setMDescription('')
-      setMNotes('')
-      setMBillUrl('')
-    } else if (type === 'expense') {
-      setExpCategory('TOLL')
-      setExpDescription('')
-      setExpAmount('')
-      setExpBillUrl('')
-    } else if (type === 'document') {
-      setDocType('REGISTRATION')
-      setDocName('')
-      setDocFileUrl('')
-      setDocFileType('')
-      setDocFileSize(0)
-      setDocExpiryDate('')
+  const openDrawer = (type: 'fuel' | 'maintenance' | 'expense' | 'document', log?: any) => {
+    setDrawerType(type); setError(null); setEditingLogId(log?.id || null)
+    
+    if (log) {
+      setCommonDate(new Date(log.date).toISOString().split('T')[0])
+    } else {
+      setCommonDate(new Date().toISOString().split('T')[0])
     }
-    setIsModalOpen(true)
+
+    if (type === 'fuel') { 
+      setFuelOdometer(log ? log.odometer.toString() : displayOdometer.toString())
+      setFuelStation(log?.fuelStation || '')
+      setFuelType(log?.fuelType || vehicle.fuelType)
+      setFuelLitres(log ? log.litres.toString() : '')
+      setFuelPricePerLitre(log ? log.pricePerLitre.toString() : '')
+      setFuelTotalCost(log ? log.totalCost.toString() : '') 
+      setFuelCity('Chennai')
+    }
+    else if (type === 'maintenance') { 
+      setMOdometer(log ? log.odometer.toString() : displayOdometer.toString())
+      setMWorkshop(log?.workshop || '')
+      setMMechanic(log?.mechanic || '')
+      setMLabourCost(log ? log.labourCost.toString() : '0')
+      setMPartsCost(log ? log.partsCost.toString() : '0')
+      setMTotalCost(log ? log.totalCost.toString() : '0')
+      setMDescription(log?.description || '')
+      setMNotes(log?.notes || '')
+      setMBillUrl(log?.bills?.[0] || '') 
+    }
+    else if (type === 'expense') { 
+      setExpCategory(log?.category || 'TOLL')
+      setExpDescription(log?.description || '')
+      setExpAmount(log ? log.amount.toString() : '')
+      setExpBillUrl(log?.billUrl || '') 
+    }
+    else if (type === 'document') { 
+      setDocType(log?.type || 'REGISTRATION')
+      setDocName(log?.name || '')
+      setDocFileUrl(log?.fileUrl || '')
+      setDocFileType(log?.fileType || '')
+      setDocFileSize(log?.fileSize || 0)
+      setDocExpiryDate(log?.expiryDate ? new Date(log.expiryDate).toISOString().split('T')[0] : '') 
+    }
+    setIsDrawerOpen(true)
   }
 
-  const handleFileUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>,
-    target: 'maintenance' | 'expense' | 'document'
-  ) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setUploading(true)
-    setError(null)
-    const formData = new FormData()
-    formData.append('file', file)
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'maintenance' | 'expense' | 'document') => {
+    const file = e.target.files?.[0]; if (!file) return
+    setUploading(true); setError(null)
+    const formData = new FormData(); formData.append('file', file)
     try {
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      })
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
       const data = await res.json()
       if (data.success) {
         if (target === 'maintenance') setMBillUrl(data.path)
         else if (target === 'expense') setExpBillUrl(data.path)
-        else if (target === 'document') {
-          setDocFileUrl(data.path)
-          setDocFileType(file.type)
-          setDocFileSize(file.size)
-          if (!docName) setDocName(file.name.split('.')[0])
-        }
-      } else {
-        setError(data.error || 'Upload failed')
-      }
-    } catch (err: any) {
-      setError('Upload failed. Please try again.')
-    } finally {
-      setUploading(false)
-    }
+        else { setDocFileUrl(data.path); setDocFileType(file.type); setDocFileSize(file.size); if (!docName) setDocName(file.name.split('.')[0]) }
+      } else setError(data.error || 'Upload failed')
+    } catch { setError('Upload failed.') } finally { setUploading(false) }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
+    e.preventDefault(); setLoading(true); setError(null)
     try {
-      if (modalType === 'fuel') {
-        const res = await createFuelLogAction({
-          vehicleId: vehicle.id,
-          date: new Date(commonDate),
-          odometer: Number(fuelOdometer),
-          fuelStation: fuelStation || null,
-          fuelType,
-          litres: Number(fuelLitres),
-          pricePerLitre: Number(fuelPricePerLitre),
-          totalCost: Number(fuelTotalCost),
-        })
-        if (res.success) {
-          setFuelLogs([res.data, ...fuelLogs])
-          setIsModalOpen(false)
-        } else {
-          setError(res.error || 'Failed to log fuel')
-        }
-      } else if (modalType === 'maintenance') {
-        const res = await createMaintenanceLogAction({
-          vehicleId: vehicle.id,
-          date: new Date(commonDate),
-          odometer: Number(mOdometer),
-          workshop: mWorkshop || null,
-          mechanic: mMechanic || null,
-          description: mDescription,
-          labourCost: Number(mLabourCost),
-          partsCost: Number(mPartsCost),
-          totalCost: Number(mTotalCost),
-          notes: mNotes || null,
-          bills: mBillUrl ? [mBillUrl] : [],
-        })
-        if (res.success) {
-          setMaintenanceLogs([res.data, ...maintenanceLogs])
-          setIsModalOpen(false)
-        } else {
-          setError(res.error || 'Failed to log maintenance')
-        }
-      } else if (modalType === 'expense') {
-        const res = await createExpenseAction({
-          vehicleId: vehicle.id,
-          category: expCategory,
-          date: new Date(commonDate),
-          description: expDescription || null,
-          amount: Number(expAmount),
-          billUrl: expBillUrl || null,
-        })
-        if (res.success) {
-          setExpenses([res.data, ...expenses])
-          setIsModalOpen(false)
-        } else {
-          setError(res.error || 'Failed to log expense')
-        }
-      } else if (modalType === 'document') {
-        const res = await createDocumentAction({
-          vehicleId: vehicle.id,
-          type: docType,
-          name: docName,
-          fileUrl: docFileUrl,
-          fileType: docFileType,
-          fileSize: docFileSize,
-          expiryDate: docExpiryDate ? new Date(docExpiryDate) : null,
-        })
-        if (res.success) {
-          setDocuments([res.data, ...documents])
-          setIsModalOpen(false)
-        } else {
-          setError(res.error || 'Failed to add document')
-        }
+      if (drawerType === 'fuel') {
+        const res = await createFuelLogAction({ vehicleId: vehicle.id, date: new Date(commonDate), odometer: Number(fuelOdometer), fuelStation: fuelStation || null, fuelType, litres: Number(fuelLitres), pricePerLitre: Number(fuelPricePerLitre), totalCost: Number(fuelTotalCost) })
+        if (res.success) { setFuelLogs([res.data, ...fuelLogs]); setIsDrawerOpen(false) } else setError(res.error || 'Failed')
+      } else if (drawerType === 'maintenance') {
+        const payload = { vehicleId: vehicle.id, date: new Date(commonDate), odometer: Number(mOdometer), workshop: mWorkshop || null, mechanic: mMechanic || null, description: mDescription, labourCost: Number(mLabourCost), partsCost: Number(mPartsCost), totalCost: Number(mTotalCost), notes: mNotes || null, bills: mBillUrl ? [mBillUrl] : [] }
+        const res = editingLogId 
+          ? await updateMaintenanceLogAction(editingLogId, payload)
+          : await createMaintenanceLogAction(payload)
+        
+        if (res.success) { 
+          if (editingLogId) setMaintenanceLogs(maintenanceLogs.map(l => l.id === editingLogId ? res.data : l))
+          else setMaintenanceLogs([res.data, ...maintenanceLogs])
+          setIsDrawerOpen(false) 
+        } else setError(res.error || 'Failed')
+      } else if (drawerType === 'expense') {
+        const res = await createExpenseAction({ vehicleId: vehicle.id, category: expCategory, date: new Date(commonDate), description: expDescription || null, amount: Number(expAmount), billUrl: expBillUrl || null })
+        if (res.success) { setExpenses([res.data, ...expenses]); setIsDrawerOpen(false) } else setError(res.error || 'Failed')
+      } else if (drawerType === 'document') {
+        const res = await createDocumentAction({ vehicleId: vehicle.id, type: docType, name: docName, fileUrl: docFileUrl, fileType: docFileType, fileSize: docFileSize, expiryDate: docExpiryDate ? new Date(docExpiryDate) : null })
+        if (res.success) { setDocuments([res.data, ...documents]); setIsDrawerOpen(false) } else setError(res.error || 'Failed')
       }
       router.refresh()
-    } catch (err: any) {
-      setError('An unexpected error occurred.')
-    } finally {
-      setLoading(false)
-    }
+    } catch { setError('An unexpected error occurred.') } finally { setLoading(false) }
   }
 
-  const handleDeleteFuel = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this fuel log?')) return
-    try {
-      const res = await deleteFuelLogAction(id, vehicle.id)
-      if (res.success) {
-        setFuelLogs(fuelLogs.filter((f) => f.id !== id))
-        router.refresh()
-      }
-    } catch (err) {
-      alert('Failed to delete fuel log')
+  const handleFetchPrice = async () => {
+    if (!fuelCity) return
+    setFetchingPrice(true); setError(null)
+    const res = await fetchCurrentFuelPriceAction(fuelCity, fuelType)
+    if (res.success && res.price) {
+      setFuelPricePerLitre(res.price.toString())
+      if (fuelLitres) setFuelTotalCost((Number(fuelLitres) * res.price).toFixed(2))
+      else if (fuelTotalCost) setFuelLitres((Number(fuelTotalCost) / res.price).toFixed(2))
+    } else {
+      setError(res.error || 'Failed to fetch price')
     }
+    setFetchingPrice(false)
   }
 
-  const handleDeleteMaintenance = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this maintenance record?')) return
-    try {
-      const res = await deleteMaintenanceLogAction(id, vehicle.id)
-      if (res.success) {
-        setMaintenanceLogs(maintenanceLogs.filter((m) => m.id !== id))
-        router.refresh()
-      }
-    } catch (err) {
-      alert('Failed to delete maintenance log')
-    }
-  }
+  const handleDeleteFuel = async (id: string) => { if (!confirm('Delete this fuel log?')) return; try { const r = await deleteFuelLogAction(id, vehicle.id); if (r.success) { setFuelLogs(fuelLogs.filter(f => f.id !== id)); router.refresh() } } catch { alert('Failed') } }
+  const handleDeleteMaintenance = async (id: string) => { if (!confirm('Delete this service record?')) return; try { const r = await deleteMaintenanceLogAction(id, vehicle.id); if (r.success) { setMaintenanceLogs(maintenanceLogs.filter(m => m.id !== id)); router.refresh() } } catch { alert('Failed') } }
+  const handleDeleteExpense = async (id: string) => { if (!confirm('Delete this expense?')) return; try { const r = await deleteExpenseAction(id, vehicle.id); if (r.success) { setExpenses(expenses.filter(x => x.id !== id)); router.refresh() } } catch { alert('Failed') } }
+  const handleDeleteDocument = async (id: string) => { if (!confirm('Delete this document?')) return; try { const r = await deleteDocumentAction(id, vehicle.id); if (r.success) { setDocuments(documents.filter(d => d.id !== id)); router.refresh() } } catch { alert('Failed') } }
 
-  const handleDeleteExpense = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this expense?')) return
-    try {
-      const res = await deleteExpenseAction(id, vehicle.id)
-      if (res.success) {
-        setExpenses(expenses.filter((e) => e.id !== id))
-        router.refresh()
-      }
-    } catch (err) {
-      alert('Failed to delete expense')
-    }
-  }
+  const totalFuelCostNum = fuelLogs.reduce((a, l) => a + Number(l.totalCost), 0)
+  const totalServiceCostNum = maintenanceLogs.reduce((a, l) => a + Number(l.totalCost), 0)
+  const totalExpenseCostNum = expenses.reduce((a, e) => a + Number(e.amount), 0)
+  const logsWithMileage = fuelLogs.filter(l => l.mileage && Number(l.mileage) > 0)
+  const avgMileage = logsWithMileage.length > 0
+    ? logsWithMileage.reduce((sum, l) => sum + Number(l.mileage), 0) / logsWithMileage.length
+    : 0
 
-  const handleDeleteDocument = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this document?')) return
-    try {
-      const res = await deleteDocumentAction(id, vehicle.id)
-      if (res.success) {
-        setDocuments(documents.filter((d) => d.id !== id))
-        router.refresh()
-      }
-    } catch (err) {
-      alert('Failed to delete document')
-    }
-  }
-
-  const totalFuelCostNum = fuelLogs.reduce((acc, log) => acc + Number(log.totalCost), 0)
-  const totalServiceCostNum = maintenanceLogs.reduce((acc, log) => acc + Number(log.totalCost), 0)
-  const totalExpenseCostNum = expenses.reduce((acc, exp) => acc + Number(exp.amount), 0)
-  const cumulativeOutlay = totalFuelCostNum + totalServiceCostNum + totalExpenseCostNum
+  const tabItems = [
+    { id: 'overview', label: 'Overview', icon: <Gauge className="size-4" /> },
+    { id: 'fuel', label: 'Fuel', icon: <Droplet className="size-4" /> },
+    { id: 'maintenance', label: 'Service', icon: <Wrench className="size-4" /> },
+    { id: 'expense', label: 'Expenses', icon: <Landmark className="size-4" /> },
+    { id: 'document', label: 'Documents', icon: <FileText className="size-4" /> },
+  ]
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      <div className="space-y-4">
-        <button
-          onClick={() => router.push('/vehicles')}
-          className="flex items-center text-xs text-slate-400 hover:text-violet-400 transition-all cursor-pointer font-medium"
-        >
-          <ArrowLeft className="h-4 w-4 mr-1.5" />
-          Back to Vehicles Registry
-        </button>
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
-          <div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-white flex items-center space-x-3">
-              <span>{vehicle.name}</span>
-              <span
-                className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
-                  vehicle.type === 'CAR'
-                    ? 'bg-violet-500/10 border-violet-500/30 text-violet-400'
-                    : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                }`}
-              >
-                {vehicle.type}
-              </span>
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              {vehicle.brand} • {vehicle.model} ({new Date(vehicle.purchaseDate).getFullYear()}) •{' '}
-              {vehicle.registrationNumber || 'No Plate'}
-            </p>
+    <div className="flex flex-col space-y-6 animate-fade-in relative -mx-4 sm:-mx-8 -mt-6">
+      
+      {/* Hero Header Section */}
+      <div className="relative w-full h-[30vh] min-h-[250px] bg-surface-1 border-b border-border-subtle overflow-hidden flex items-center justify-center">
+        
+        {/* Background ambient glow */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#001122] to-transparent z-0" />
+        <div className="absolute w-3/4 h-3/4 bg-accent/10 blur-[100px] rounded-full z-0" />        {/* Floating Header */}
+        <div className="absolute top-4 left-4 sm:top-6 sm:left-8 z-10 w-full pr-8 sm:pr-16 flex justify-between items-start">
+          <button onClick={() => router.push('/vehicles')} className="flex items-center text-caption text-text-tertiary hover:text-accent transition-colors cursor-pointer font-medium mb-3 bg-surface-0/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-border-subtle">
+            <ArrowLeft className="size-3.5 mr-1.5" /> Back to Garage
+          </button>
+          
+          <button onClick={() => router.push(`/vehicles?edit=${vehicle.id}`)} className="flex items-center text-caption text-text-primary hover:text-accent transition-colors cursor-pointer font-medium mb-3 bg-surface-0/60 backdrop-blur-md px-3 py-1.5 rounded-[var(--radius-sm)] border border-border-subtle">
+            Edit Details
+          </button>
+        </div>
+          
+        <div className="absolute top-16 left-4 sm:top-20 sm:left-8 z-10">
+          <div className="bg-surface-0/80 backdrop-blur-xl border border-border-subtle p-4 rounded-2xl shadow-xl flex items-center gap-4">
+            {vehicle.photos?.[0] && (
+              <img src={vehicle.photos[0]} alt={vehicle.name} className="size-12 rounded-xl object-cover border border-border-subtle" />
+            )}
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-h2 font-display text-text-primary tracking-tight">{vehicle.name}</h1>
+                <Badge variant={vehicle.type === 'CAR' ? 'accent' : 'success'} size="sm">{vehicle.type}</Badge>
+              </div>
+              <p className="text-caption text-text-secondary mt-0.5">
+                {vehicle.brand} · {vehicle.model} · {vehicle.registrationNumber || 'No Plate'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Floating Quick Stats */}
+        <div className="absolute bottom-4 left-4 sm:bottom-6 sm:left-8 z-10 flex gap-3 pointer-events-none">
+          <div className="bg-surface-0/80 backdrop-blur-xl border border-border-subtle p-3 rounded-xl shadow-lg pointer-events-auto">
+            <div className="text-xs text-text-tertiary mb-0.5 flex items-center gap-1.5"><Gauge className="size-3" /> Odometer</div>
+            <div className="text-sm font-bold text-text-primary">{displayOdometer.toLocaleString()} km</div>
+          </div>
+          <div className="bg-surface-0/80 backdrop-blur-xl border border-border-subtle p-3 rounded-xl shadow-lg pointer-events-auto">
+            <div className="text-xs text-text-tertiary mb-0.5 flex items-center gap-1.5"><Droplet className="size-3" /> Avg Mileage</div>
+            <div className="text-sm font-bold text-text-primary">{avgMileage > 0 ? `${avgMileage.toFixed(1)} km/l` : 'N/A'}</div>
+          </div>
+          <div className="bg-surface-0/80 backdrop-blur-xl border border-border-subtle p-3 rounded-xl shadow-lg pointer-events-auto">
+            <div className="text-xs text-text-tertiary mb-0.5 flex items-center gap-1.5"><Receipt className="size-3" /> Total Outlay</div>
+            <div className="text-sm font-bold text-text-primary">{formatCurrency(totalFuelCostNum + totalServiceCostNum + totalExpenseCostNum)}</div>
           </div>
         </div>
       </div>
 
-      {/* Quick stats totals cards grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border border-white/5 bg-slate-900/40 backdrop-blur-lg rounded-2xl relative overflow-hidden group hover:border-emerald-500/20 transition-all">
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-50" />
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-400">Total Fuel Spent</CardTitle>
-            <Droplet className="h-4 w-4 text-emerald-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-extrabold text-white">{formatCurrency(totalFuelCostNum)}</div>
-            <p className="text-xs text-slate-500 mt-1">From {fuelLogs.length} logged fill-ups</p>
-          </CardContent>
-        </Card>
-        <Card className="border border-white/5 bg-slate-900/40 backdrop-blur-lg rounded-2xl relative overflow-hidden group hover:border-amber-500/20 transition-all">
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-50" />
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-400">Services Cost</CardTitle>
-            <Wrench className="h-4 w-4 text-amber-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-extrabold text-white">{formatCurrency(totalServiceCostNum)}</div>
-            <p className="text-xs text-slate-500 mt-1">From {maintenanceLogs.length} repairs & tune-ups</p>
-          </CardContent>
-        </Card>
-        <Card className="border border-white/5 bg-slate-900/40 backdrop-blur-lg rounded-2xl relative overflow-hidden group hover:border-indigo-500/20 transition-all">
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-50" />
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-400">Other Expenses</CardTitle>
-            <Landmark className="h-4 w-4 text-indigo-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-extrabold text-white">{formatCurrency(totalExpenseCostNum)}</div>
-            <p className="text-xs text-slate-500 mt-1">From {expenses.length} logs (Tolls, parking, etc.)</p>
-          </CardContent>
-        </Card>
-        <Card className="border border-white/5 bg-slate-900/40 backdrop-blur-lg rounded-2xl relative overflow-hidden group hover:border-violet-500/20 transition-all">
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-violet-500 to-transparent opacity-50" />
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-400">Cumulative Outlay</CardTitle>
-            <Receipt className="h-4 w-4 text-violet-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-extrabold text-white">{formatCurrency(cumulativeOutlay)}</div>
-            <p className="text-xs text-slate-500 mt-1">Aggregated cost of vehicle ownership</p>
-          </CardContent>
-        </Card>
-      </div>
+      <div className="px-4 sm:px-8 space-y-6">
+        {/* Stats Summary (now smaller below hero) */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <StatCard label="Fuel Spent" value={formatCurrency(totalFuelCostNum)} icon={<Droplet className="size-4" />} description={`${fuelLogs.length} fill-ups`} />
+          <StatCard label="Services" value={formatCurrency(totalServiceCostNum)} icon={<Wrench className="size-4" />} description={`${maintenanceLogs.length} records`} />
+          <StatCard label="Expenses" value={formatCurrency(totalExpenseCostNum)} icon={<Landmark className="size-4" />} description={`${expenses.length} entries`} />
+        </div>
 
-      {/* Tabs navigation headers layout */}
-      <div className="flex border-b border-white/5 overflow-x-auto whitespace-nowrap scrollbar-none">
-        {(['overview', 'fuel', 'maintenance', 'expense', 'document'] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-6 py-3.5 text-sm font-semibold capitalize border-b-2 transition-all cursor-pointer ${
-              activeTab === tab
-                ? 'border-violet-500 text-violet-400 bg-violet-500/5'
-                : 'border-transparent text-slate-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            {tab === 'maintenance'
-              ? 'Service History'
-              : tab === 'expense'
-              ? 'General Expenses'
-              : tab === 'document'
-              ? 'Documents'
-              : tab}
-          </button>
-        ))}
-      </div>
+        {/* Tabs */}
+      <Tabs tabs={tabItems} activeTab={activeTab} onChange={setActiveTab} className="w-full overflow-x-auto" />
 
-      {/* Tab Panels content */}
+      {/* Overview Tab */}
       {activeTab === 'overview' && (
-        <div className="grid gap-6 md:grid-cols-3">
-          <Card className="md:col-span-2 border border-white/5 bg-slate-900/40 backdrop-blur-lg rounded-2xl">
-            <CardHeader>
-              <CardTitle>Vehicle Specifications</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2 text-sm pt-2">
-              <div className="flex justify-between border-b border-white/5 pb-2">
-                <span className="text-slate-400">Variant/Trim</span>
-                <span className="font-semibold text-white">{vehicle.variant || 'N/A'}</span>
-              </div>
-              <div className="flex justify-between border-b border-white/5 pb-2">
-                <span className="text-slate-400">VIN</span>
-                <span className="font-semibold text-white">{vehicle.vin || 'N/A'}</span>
-              </div>
-              <div className="flex justify-between border-b border-white/5 pb-2">
-                <span className="text-slate-400">Engine Number</span>
-                <span className="font-semibold text-white">{vehicle.engineNumber || 'N/A'}</span>
-              </div>
-              <div className="flex justify-between border-b border-white/5 pb-2">
-                <span className="text-slate-400">Fuel Type</span>
-                <span className="font-semibold text-white capitalize">{vehicle.fuelType.toLowerCase()}</span>
-              </div>
-              <div className="flex justify-between border-b border-white/5 pb-2">
-                <span className="text-slate-400">Purchase Date</span>
-                <span className="font-semibold text-white">{new Date(vehicle.purchaseDate).toLocaleDateString()}</span>
-              </div>
-              <div className="flex justify-between border-b border-white/5 pb-2">
-                <span className="text-slate-400">Purchase Price</span>
-                <span className="font-semibold text-white">{formatCurrency(vehicle.purchasePrice)}</span>
-              </div>
-              <div className="flex justify-between border-b border-white/5 pb-2">
-                <span className="text-slate-400">Odometer</span>
-                <span className="font-semibold text-white">{vehicle.currentOdometer.toLocaleString()} km</span>
-              </div>
+        <div className="grid gap-6 md:grid-cols-3 animate-fade-in-up">
+          <Card className="md:col-span-2">
+            <CardHeader><CardTitle>Specifications</CardTitle></CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-2">
+              {[
+                ['Model Year', vehicle.variant || 'N/A'],
+                ['Engine No.', vehicle.engineNumber || 'N/A'], ['Fuel Type', vehicle.fuelType],
+                ['Purchase Date', new Date(vehicle.purchaseDate).toLocaleDateString()], ['Purchase Price', formatCurrency(vehicle.purchasePrice)],
+                ['Odometer', `${displayOdometer.toLocaleString()} km`],
+              ].map(([label, value]) => (
+                <div key={label} className="flex justify-between items-center py-2 border-b border-border-subtle">
+                  <span className="text-body-sm text-text-secondary">{label}</span>
+                  <span className="text-body-sm font-semibold text-text-primary">{value}</span>
+                </div>
+              ))}
             </CardContent>
           </Card>
-          <div className="space-y-6">
-            <Card className="border border-white/5 bg-slate-900/40 backdrop-blur-lg rounded-2xl">
-              <CardHeader>
-                <CardTitle>Status Expirations</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 pt-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-400">Insurance Policy</span>
-                  <span className="text-xs font-semibold text-white">
-                    {vehicle.insuranceExpiry ? new Date(vehicle.insuranceExpiry).toLocaleDateString() : 'Not Set'}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-400">PUC Certificate</span>
-                  <span className="text-xs font-semibold text-white">
-                    {vehicle.pucExpiry ? new Date(vehicle.pucExpiry).toLocaleDateString() : 'Not Set'}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-400">Vehicle Warranty</span>
-                  <span className="text-xs font-semibold text-white">
-                    {vehicle.warrantyExpiry ? new Date(vehicle.warrantyExpiry).toLocaleDateString() : 'Not Set'}
-                  </span>
-                </div>
+          <div className="space-y-4">
+            <Card>
+              <CardHeader><CardTitle>Expirations</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                {[
+                  ['Insurance', vehicle.insuranceExpiry], ['Warranty', vehicle.warrantyExpiry],
+                ].map(([label, date]) => (
+                  <div key={label as string} className="flex justify-between items-center">
+                    <span className="text-body-sm text-text-secondary">{label as string}</span>
+                    <span className="text-caption font-semibold text-text-primary">
+                      {date ? new Date(date as string).toLocaleDateString() : 'Not Set'}
+                    </span>
+                  </div>
+                ))}
               </CardContent>
             </Card>
             {vehicle.notes && (
-              <Card className="border border-white/5 bg-slate-900/40 backdrop-blur-lg rounded-2xl">
-                <CardHeader>
-                  <CardTitle>Vehicle Notes</CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm text-slate-300 leading-relaxed pt-2">{vehicle.notes}</CardContent>
+              <Card>
+                <CardHeader><CardTitle>Notes</CardTitle></CardHeader>
+                <CardContent><p className="text-body-sm text-text-secondary leading-relaxed">{vehicle.notes}</p></CardContent>
               </Card>
             )}
           </div>
         </div>
       )}
 
+      {/* Fuel Tab */}
       {activeTab === 'fuel' && (
-        <Card className="border border-white/5 bg-slate-900/40 backdrop-blur-lg rounded-2xl">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Fuel Logs</CardTitle>
-              <CardDescription>Chronological fuel fill logs and efficiency metrics.</CardDescription>
-            </div>
-            <button
-              onClick={() => openFormModal('fuel')}
-              className="flex h-9 items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 px-4 text-xs font-semibold text-white hover:from-violet-500 hover:via-indigo-500 hover:to-blue-500 transition-all cursor-pointer font-sans shadow-md shadow-indigo-500/10 hover:scale-[1.02] transform duration-200"
-            >
-              <Plus className="h-4 w-4 mr-1.5" />
-              Log Fuel
-            </button>
-          </CardHeader>
-          <CardContent className="overflow-x-auto">
-            {fuelLogs.length === 0 ? (
-              <div className="text-center py-12 text-slate-500 text-sm">No fuel logs registered.</div>
-            ) : (
-              <table className="w-full text-left border-collapse text-sm min-w-[600px]">
-                <thead>
-                  <tr className="border-b border-white/10 text-slate-400 font-semibold">
-                    <th className="pb-3">Date</th>
-                    <th className="pb-3">Odometer</th>
-                    <th className="pb-3">Quantity</th>
-                    <th className="pb-3">Rate</th>
-                    <th className="pb-3">Total Cost</th>
-                    <th className="pb-3">Efficiency</th>
-                    <th className="pb-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {fuelLogs.map((log) => (
-                    <tr key={log.id} className="border-b border-white/5 hover:bg-white/5 transition-all text-slate-300">
-                      <td className="py-4">{new Date(log.date).toLocaleDateString()}</td>
-                      <td>{log.odometer.toLocaleString()} km</td>
-                      <td>{Number(log.litres).toFixed(1)}L</td>
-                      <td>{formatCurrency(Number(log.pricePerLitre))}/L</td>
-                      <td className="font-bold text-white">{formatCurrency(Number(log.totalCost))}</td>
-                      <td>{log.mileage ? `${Number(log.mileage).toFixed(2)} km/L` : 'N/A'}</td>
-                      <td className="py-4 text-right">
-                        <button
-                          onClick={() => handleDeleteFuel(log.id)}
-                          className="p-1.5 rounded bg-red-500/10 border border-red-500/20 text-red-400 hover:text-red-300 hover:bg-red-500/20 transition-all cursor-pointer"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {activeTab === 'maintenance' && (
-        <Card className="border border-white/5 bg-slate-900/40 backdrop-blur-lg rounded-2xl">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Service History</CardTitle>
-              <CardDescription>Repairs, maintenance, and workshop service logs.</CardDescription>
-            </div>
-            <button
-              onClick={() => openFormModal('maintenance')}
-              className="flex h-9 items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 px-4 text-xs font-semibold text-white hover:from-violet-500 hover:via-indigo-500 hover:to-blue-500 transition-all cursor-pointer font-sans shadow-md shadow-indigo-500/10 hover:scale-[1.02] transform duration-200"
-            >
-              <Plus className="h-4 w-4 mr-1.5" />
-              Log Service
-            </button>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {maintenanceLogs.length === 0 ? (
-              <div className="text-center py-12 text-slate-500 text-sm">No service logs registered.</div>
-            ) : (
-              maintenanceLogs.map((log) => (
-                <div
-                  key={log.id}
-                  className="p-4 rounded-lg border border-white/5 bg-slate-950/20 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0 hover:bg-slate-950/40 transition-all"
-                >
-                  <div className="space-y-2 flex-1">
-                    <div className="flex items-center space-x-3">
-                      <span className="text-sm font-semibold text-white">{log.description}</span>
-                      <span className="text-xs text-slate-500 font-mono">@{log.odometer.toLocaleString()} km</span>
-                    </div>
-                    <div className="text-xs text-slate-400 font-medium">
-                      {new Date(log.date).toLocaleDateString()} {log.workshop ? `• ${log.workshop}` : ''}{' '}
-                      {log.mechanic ? `• Mechanic: ${log.mechanic}` : ''}
-                    </div>
-                    {log.notes && <p className="text-xs text-slate-300 max-w-2xl mt-1">{log.notes}</p>}
-                    {log.billUrls?.[0] && (
-                      <a
-                        href={log.billUrls[0]}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center text-[10px] text-violet-400 hover:underline mt-2 font-medium"
-                      >
-                        <Receipt className="h-3 w-3 mr-1" />
-                        View Receipt
-                      </a>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between md:justify-end md:space-x-4 pl-0">
-                    <span className="text-sm font-bold text-white bg-slate-900 border border-white/10 px-2 py-0.5 rounded">
-                      {formatCurrency(Number(log.totalCost))}
-                    </span>
-                    <button
-                      onClick={() => handleDeleteMaintenance(log.id)}
-                      className="p-1.5 rounded bg-red-500/10 border border-red-500/20 text-red-400 hover:text-red-300 hover:bg-red-500/20 transition-all cursor-pointer"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {activeTab === 'expense' && (
-        <Card className="border border-white/5 bg-slate-900/40 backdrop-blur-lg rounded-2xl">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>General Expenses</CardTitle>
-              <CardDescription>Tolls, parking, registrations, cleanings, and other costs.</CardDescription>
-            </div>
-            <button
-              onClick={() => openFormModal('expense')}
-              className="flex h-9 items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 px-4 text-xs font-semibold text-white hover:from-violet-500 hover:via-indigo-500 hover:to-blue-500 transition-all cursor-pointer font-sans shadow-md shadow-indigo-500/10 hover:scale-[1.02] transform duration-200"
-            >
-              <Plus className="h-4 w-4 mr-1.5" />
-              Log Expense
-            </button>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {expenses.length === 0 ? (
-              <div className="text-center py-12 text-slate-500 text-sm">No expenses registered.</div>
-            ) : (
-              expenses.map((exp) => (
-                <div
-                  key={exp.id}
-                  className="p-4 rounded-lg border border-white/5 bg-slate-950/20 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0 hover:bg-slate-950/40 transition-all"
-                >
-                  <div className="space-y-2 flex-1">
-                    <div className="flex items-center space-x-3">
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full border border-indigo-500/30 text-indigo-400 bg-indigo-500/10">
-                        {exp.category}
-                      </span>
-                      {exp.description && <span className="text-sm font-semibold text-white">{exp.description}</span>}
-                    </div>
-                    <div className="text-xs text-slate-400">{new Date(exp.date).toLocaleDateString()}</div>
-                    {exp.billDownloadUrl && (
-                      <a
-                        href={exp.billDownloadUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center text-[10px] text-violet-400 hover:underline mt-2 font-medium"
-                      >
-                        <Receipt className="h-3 w-3 mr-1" />
-                        View Receipt
-                      </a>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between md:justify-end md:space-x-4 pl-0">
-                    <span className="text-sm font-bold text-white bg-slate-900 border border-white/10 px-2 py-0.5 rounded">
-                      {formatCurrency(Number(exp.amount))}
-                    </span>
-                    <button
-                      onClick={() => handleDeleteExpense(exp.id)}
-                      className="p-1.5 rounded bg-red-500/10 border border-red-500/20 text-red-400 hover:text-red-300 hover:bg-red-500/20 transition-all cursor-pointer"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {activeTab === 'document' && (
-        <Card className="border border-white/5 bg-slate-900/40 backdrop-blur-lg rounded-2xl">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Documents Registry</CardTitle>
-              <CardDescription>
-                Vehicle insurance, registrations, puc, and warranties certificates.
-              </CardDescription>
-            </div>
-            <button
-              onClick={() => openFormModal('document')}
-              className="flex h-9 items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 px-4 text-xs font-semibold text-white hover:from-violet-500 hover:via-indigo-500 hover:to-blue-500 transition-all cursor-pointer font-sans shadow-md shadow-indigo-500/10 hover:scale-[1.02] transform duration-200"
-            >
-              <Plus className="h-4 w-4 mr-1.5" />
-              Add Document
-            </button>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {documents.length === 0 ? (
-              <div className="text-center py-12 text-slate-500 text-sm">No documents uploaded.</div>
-            ) : (
-              documents.map((doc) => (
-                <div
-                  key={doc.id}
-                  className="p-4 rounded-lg border border-white/5 bg-slate-950/20 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0 hover:bg-slate-950/40 transition-all"
-                >
-                  <div className="space-y-2 flex-1">
-                    <div className="flex items-center space-x-3">
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full border border-violet-500/30 text-violet-400 bg-violet-500/10">
-                        {doc.type}
-                      </span>
-                      <span className="text-sm font-semibold text-white">{doc.name}</span>
-                    </div>
-                    <div className="text-xs text-slate-400">
-                      Uploaded on {new Date(doc.createdAt).toLocaleDateString()}{' '}
-                      {doc.expiryDate ? `• Expiry: ${new Date(doc.expiryDate).toLocaleDateString()}` : ''}
-                    </div>
-                    <a
-                      href={doc.downloadUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center text-xs text-violet-400 hover:underline mt-2 font-medium"
-                    >
-                      <FileText className="h-3.5 w-3.5 mr-1" />
-                      Download Document
-                    </a>
-                  </div>
-                  <div className="flex items-center justify-between md:justify-end md:space-x-4 pl-0">
-                    <button
-                      onClick={() => handleDeleteDocument(doc.id)}
-                      className="p-1.5 rounded bg-red-500/10 border border-red-500/20 text-red-400 hover:text-red-300 hover:bg-red-500/20 transition-all cursor-pointer"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Dialog Modals Add Logs forms */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
-          <Card className="w-full max-w-xl border border-white/5 bg-slate-950/90 backdrop-blur-xl max-h-[90vh] overflow-y-auto relative animate-fade-in-up rounded-2xl shadow-2xl">
-            <button
-              onClick={() => setIsModalOpen(false)}
-              className="absolute right-4 top-4 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer font-sans"
-            >
-              <X className="h-5 w-5" />
-            </button>
-            <form onSubmit={handleSubmit}>
-              <CardHeader>
-                <CardTitle>
-                  Log{' '}
-                  {modalType === 'fuel'
-                    ? 'Fuel Refuel'
-                    : modalType === 'maintenance'
-                    ? 'Service Log'
-                    : modalType === 'expense'
-                    ? 'Expense Log'
-                    : 'Document Details'}
-                </CardTitle>
-                <CardDescription>Enter registry log records values for {vehicle.name}.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {error && <div className="rounded-lg bg-red-500/10 border border-red-500/30 p-3 text-sm text-red-400">{error}</div>}
-                <div className="space-y-2">
-                  <Label htmlFor="c-date">Log Date *</Label>
-                  <Input
-                    id="c-date"
-                    type="date"
-                    required
-                    value={commonDate}
-                    onChange={(e) => setCommonDate(e.target.value)}
-                    className="h-10 bg-slate-900 border-white/10 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all w-full"
-                  />
-                </div>
-                {modalType === 'fuel' && (
-                  <div className="space-y-4">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="f-odo">Odometer Reading (km) *</Label>
-                        <Input
-                          id="f-odo"
-                          type="number"
-                          required
-                          value={fuelOdometer}
-                          onChange={(e) => setFuelOdometer(e.target.value)}
-                          className="h-10 bg-slate-900 border-white/10 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all w-full"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="f-station">Fuel Station / Vendor</Label>
-                        <Input
-                          id="f-station"
-                          value={fuelStation}
-                          onChange={(e) => setFuelStation(e.target.value)}
-                          placeholder="e.g. Shell bunk"
-                          className="h-10 bg-slate-900 border-white/10 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all w-full"
-                        />
-                      </div>
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-3">
-                      <div className="space-y-2">
-                        <Label htmlFor="f-lit">Quantity (Litres) *</Label>
-                        <Input
-                          id="f-lit"
-                          type="number"
-                          step="any"
-                          required
-                          value={fuelLitres}
-                          onChange={(e) => handleFuelCalc(e.target.value, fuelPricePerLitre)}
-                          placeholder="e.g. 35.5"
-                          className="h-10 bg-slate-900 border-white/10 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all w-full"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="f-rate">Price / Litre *</Label>
-                        <Input
-                          id="f-rate"
-                          type="number"
-                          step="any"
-                          required
-                          value={fuelPricePerLitre}
-                          onChange={(e) => handleFuelCalc(fuelLitres, e.target.value)}
-                          placeholder="e.g. 102.50"
-                          className="h-10 bg-slate-900 border-white/10 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all w-full"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="f-total">Total Cost *</Label>
-                        <Input
-                          id="f-total"
-                          type="number"
-                          step="any"
-                          required
-                          value={fuelTotalCost}
-                          onChange={(e) => setFuelTotalCost(e.target.value)}
-                          placeholder="Total price"
-                          className="h-10 bg-slate-900 border-white/10 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all w-full"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {modalType === 'maintenance' && (
-                  <div className="space-y-4">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="m-odo">Odometer Reading (km) *</Label>
-                        <Input
-                          id="m-odo"
-                          type="number"
-                          required
-                          value={mOdometer}
-                          onChange={(e) => setMOdometer(e.target.value)}
-                          className="h-10 bg-slate-900 border-white/10 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all w-full"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="m-shop">Workshop Name</Label>
-                        <Input
-                          id="m-shop"
-                          value={mWorkshop}
-                          onChange={(e) => setMWorkshop(e.target.value)}
-                          placeholder="e.g. Maruti Service"
-                          className="h-10 bg-slate-900 border-white/10 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all w-full"
-                        />
-                      </div>
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-3">
-                      <div className="space-y-2">
-                        <Label htmlFor="m-lab">Labour Charges *</Label>
-                        <Input
-                          id="m-lab"
-                          type="number"
-                          value={mLabourCost}
-                          onChange={(e) => handleMaintenanceCalc(e.target.value, mPartsCost)}
-                          className="h-10 bg-slate-900 border-white/10 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all w-full"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="m-parts">Parts/Spares Cost *</Label>
-                        <Input
-                          id="m-parts"
-                          type="number"
-                          value={mPartsCost}
-                          onChange={(e) => handleMaintenanceCalc(mLabourCost, e.target.value)}
-                          className="h-10 bg-slate-900 border-white/10 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all w-full"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="m-total">Total Service Cost *</Label>
-                        <Input
-                          id="m-total"
-                          type="number"
-                          required
-                          value={mTotalCost}
-                          onChange={(e) => setMTotalCost(e.target.value)}
-                          className="h-10 bg-slate-900 border-white/10 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all w-full"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="m-desc">Description of Service *</Label>
-                      <Input
-                        id="m-desc"
-                        required
-                        value={mDescription}
-                        onChange={(e) => setMDescription(e.target.value)}
-                        placeholder="e.g. Engine oil change, oil filter replaced"
-                        className="h-10 bg-slate-900 border-white/10 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all w-full"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="m-bill">Attach Bill receipt</Label>
-                      <div className="flex items-center space-x-4">
-                        <Input
-                          id="m-bill-file"
-                          type="file"
-                          onChange={(e) => handleFileUpload(e, 'maintenance')}
-                          className="hidden"
-                        />
-                        <button
-                          type="button"
-                          disabled={uploading}
-                          onClick={() => document.getElementById('m-bill-file')?.click()}
-                          className="flex h-10 items-center justify-center rounded-xl bg-slate-900 border border-white/10 px-4 text-xs font-semibold text-white hover:bg-slate-800 transition-all cursor-pointer disabled:opacity-50"
-                        >
-                          {uploading ? (
-                            <>
-                              <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin text-violet-400" />
-                              <span>Uploading...</span>
-                            </>
-                          ) : (
-                            <span>Choose File</span>
-                          )}
-                        </button>
-                        {mBillUrl && <span className="text-xs text-emerald-400 font-medium">File Uploaded!</span>}
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="m-notes">Service Notes</Label>
-                      <Textarea
-                        id="m-notes"
-                        value={mNotes}
-                        onChange={(e) => setMNotes(e.target.value)}
-                        placeholder="Warranty details, specific mechanic recommendations..."
-                        className="bg-slate-900 border-white/10 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all w-full"
-                      />
-                    </div>
-                  </div>
-                )}
-                {modalType === 'expense' && (
-                  <div className="space-y-4">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="e-cat">Expense Category *</Label>
-                        <Select
-                          id="e-cat"
-                          value={expCategory}
-                          onChange={(e) => setExpCategory(e.target.value)}
-                          className="h-10 bg-slate-900 border-white/10 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all w-full"
-                        >
-                          <option value="TOLL">Toll charges</option>
-                          <option value="PARKING">Parking fees</option>
-                          <option value="CLEANING">Washing/Cleaning</option>
-                          <option value="CHALLAN">Fine/Challan</option>
-                          <option value="OTHER">Other Expenses</option>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="e-amt">Amount *</Label>
-                        <Input
-                          id="e-amt"
-                          type="number"
-                          required
-                          value={expAmount}
-                          onChange={(e) => setExpAmount(e.target.value)}
-                          className="h-10 bg-slate-900 border-white/10 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all w-full"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="e-desc">Description</Label>
-                      <Input
-                        id="e-desc"
-                        value={expDescription}
-                        onChange={(e) => setExpDescription(e.target.value)}
-                        placeholder="e.g. NH8 toll payment"
-                        className="h-10 bg-slate-900 border-white/10 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all w-full"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="e-bill">Attach Bill receipt</Label>
-                      <div className="flex items-center space-x-4">
-                        <Input
-                          id="e-bill-file"
-                          type="file"
-                          onChange={(e) => handleFileUpload(e, 'expense')}
-                          className="hidden"
-                        />
-                        <button
-                          type="button"
-                          disabled={uploading}
-                          onClick={() => document.getElementById('e-bill-file')?.click()}
-                          className="flex h-10 items-center justify-center rounded-xl bg-slate-900 border border-white/10 px-4 text-xs font-semibold text-white hover:bg-slate-800 transition-all cursor-pointer disabled:opacity-50"
-                        >
-                          {uploading ? (
-                            <>
-                              <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin text-violet-400" />
-                              <span>Uploading...</span>
-                            </>
-                          ) : (
-                            <span>Choose File</span>
-                          )}
-                        </button>
-                        {expBillUrl && <span className="text-xs text-emerald-400 font-medium">File Uploaded!</span>}
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {modalType === 'document' && (
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="d-file">Upload Certificate File *</Label>
-                      <div className="flex items-center space-x-4">
-                        <Input
-                          id="d-file-input"
-                          type="file"
-                          required
-                          onChange={(e) => handleFileUpload(e, 'document')}
-                          className="hidden"
-                        />
-                        <button
-                          type="button"
-                          disabled={uploading}
-                          onClick={() => document.getElementById('d-file-input')?.click()}
-                          className="flex h-10 items-center justify-center rounded-xl bg-slate-900 border border-white/10 px-4 text-xs font-semibold text-white hover:bg-slate-800 transition-all cursor-pointer disabled:opacity-50"
-                        >
-                          {uploading ? (
-                            <>
-                              <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin text-violet-400" />
-                              <span>Uploading...</span>
-                            </>
-                          ) : (
-                            <span>Choose File</span>
-                          )}
-                        </button>
-                        {docFileUrl && <span className="text-xs text-emerald-400 font-medium">File Uploaded!</span>}
-                      </div>
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="d-type">Document Type *</Label>
-                        <Select
-                          id="d-type"
-                          value={docType}
-                          onChange={(e) => setDocType(e.target.value)}
-                          className="h-10 bg-slate-900 border-white/10 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all w-full"
-                        >
-                          <option value="REGISTRATION">Registration (RC)</option>
-                          <option value="INSURANCE">Insurance Policy</option>
-                          <option value="PUC">PUC Certificate</option>
-                          <option value="WARRANTY">Warranty Document</option>
-                          <option value="OTHER">Other Documents</option>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="d-name">Document Name *</Label>
-                        <Input
-                          id="d-name"
-                          required
-                          value={docName}
-                          onChange={(e) => setDocName(e.target.value)}
-                          placeholder="e.g. RC Smartcard"
-                          className="h-10 bg-slate-900 border-white/10 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all w-full"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="d-exp">Expiration Date</Label>
-                      <Input
-                        id="d-exp"
-                        type="date"
-                        value={docExpiryDate}
-                        onChange={(e) => setDocExpiryDate(e.target.value)}
-                        className="h-10 bg-slate-900 border-white/10 text-white placeholder-slate-500 focus:border-violet-500 focus:ring-violet-500/20 rounded-xl transition-all w-full"
-                      />
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-              <CardFooter className="border-t border-white/5 pt-4 flex justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="flex h-10 items-center justify-center rounded-xl bg-slate-900 border border-white/10 px-4 text-sm font-semibold text-slate-400 hover:bg-slate-800 hover:text-white transition-all cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading || uploading}
-                  className="flex h-10 items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 px-5 text-sm font-semibold text-white hover:from-violet-500 hover:via-indigo-500 hover:to-blue-500 transition-all cursor-pointer disabled:opacity-50 shadow-lg shadow-indigo-500/20"
-                >
-                  {loading ? 'Saving...' : 'Save Log'}
-                </button>
-              </CardFooter>
-            </form>
-          </Card>
+        <div className="space-y-4 animate-fade-in-up">
+          <div className="flex justify-end">
+            <Button onClick={() => openDrawer('fuel')}><Plus className="size-4" /> Log Fuel</Button>
+          </div>
+          {fuelLogs.length === 0 ? (
+            <EmptyState icon={<Droplet className="size-6" />} title="No fuel logs" description="Start tracking fuel consumption." action={<Button onClick={() => openDrawer('fuel')}><Plus className="size-4" /> Log Fuel</Button>} />
+          ) : (
+            <DataTable
+              columns={[
+                { key: 'date', header: 'Date', sortable: true, render: (r: any) => new Date(r.date).toLocaleDateString() },
+                { key: 'fuelStation', header: 'Station', render: (r: any) => r.fuelStation || '—' },
+                { key: 'litres', header: 'Litres', sortable: true, render: (r: any) => `${Number(r.litres).toFixed(1)}L` },
+                { key: 'pricePerLitre', header: '₹/L', render: (r: any) => `₹${Number(r.pricePerLitre).toFixed(2)}` },
+                { key: 'totalCost', header: 'Cost', sortable: true, render: (r: any) => formatCurrency(Number(r.totalCost)) },
+                { key: 'odometer', header: 'Odo', render: (r: any) => `${r.odometer.toLocaleString()} km` },
+                { key: 'mileage', header: 'Mileage', render: (r: any) => r.mileage ? `${r.mileage} km/l` : '—' },
+                { key: 'actions', header: '', render: (r: any) => <Button variant="danger" size="icon-sm" onClick={() => handleDeleteFuel(r.id)}><Trash2 className="size-3" /></Button> },
+              ]}
+              data={fuelLogs}
+            />
+          )}
         </div>
       )}
+
+      {/* Service Tab */}
+      {activeTab === 'maintenance' && (
+        <div className="space-y-4 animate-fade-in-up">
+          <div className="flex justify-end">
+            <Button onClick={() => openDrawer('maintenance')}><Plus className="size-4" /> Log Service</Button>
+          </div>
+          {maintenanceLogs.length === 0 ? (
+            <EmptyState icon={<Wrench className="size-6" />} title="No service records" description="Track maintenance history." action={<Button onClick={() => openDrawer('maintenance')}><Plus className="size-4" /> Log Service</Button>} />
+          ) : (
+            <DataTable
+              columns={[
+                { key: 'date', header: 'Date', sortable: true, render: (r: any) => new Date(r.date).toLocaleDateString() },
+                { key: 'description', header: 'Description', render: (r: any) => <span className="truncate max-w-[200px] block">{r.description}</span> },
+                { key: 'workshop', header: 'Workshop', render: (r: any) => r.workshop || '—' },
+                { key: 'totalCost', header: 'Cost', sortable: true, render: (r: any) => formatCurrency(Number(r.totalCost)) },
+                { key: 'odometer', header: 'Odo', render: (r: any) => `${r.odometer.toLocaleString()} km` },
+                { key: 'actions', header: '', render: (r: any) => (
+                  <div className="flex justify-end gap-1.5">
+                    {r.bills && r.bills.length > 0 && (
+                      <Button variant="ghost" size="icon-sm" onClick={() => window.open(r.bills[0], '_blank')} title="View Bill">
+                        <Eye className="size-3" />
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="icon-sm" onClick={() => openDrawer('maintenance', r)} title="Edit"><Edit3 className="size-3" /></Button>
+                    <Button variant="danger" size="icon-sm" onClick={() => handleDeleteMaintenance(r.id)} title="Delete"><Trash2 className="size-3" /></Button>
+                  </div>
+                ) },
+              ]}
+              data={maintenanceLogs}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Expenses Tab */}
+      {activeTab === 'expense' && (
+        <div className="space-y-4 animate-fade-in-up">
+          <div className="flex justify-end">
+            <Button onClick={() => openDrawer('expense')}><Plus className="size-4" /> Log Expense</Button>
+          </div>
+          {expenses.length === 0 ? (
+            <EmptyState icon={<Landmark className="size-6" />} title="No expenses" description="Track tolls, parking, and more." action={<Button onClick={() => openDrawer('expense')}><Plus className="size-4" /> Log Expense</Button>} />
+          ) : (
+            <DataTable
+              columns={[
+                { key: 'date', header: 'Date', sortable: true, render: (r: any) => new Date(r.date).toLocaleDateString() },
+                { key: 'category', header: 'Category', render: (r: any) => <Badge variant="default" size="sm">{r.category}</Badge> },
+                { key: 'description', header: 'Description', render: (r: any) => r.description || '—' },
+                { key: 'amount', header: 'Amount', sortable: true, render: (r: any) => formatCurrency(Number(r.amount)) },
+                { key: 'actions', header: '', render: (r: any) => <Button variant="danger" size="icon-sm" onClick={() => handleDeleteExpense(r.id)}><Trash2 className="size-3" /></Button> },
+              ]}
+              data={expenses}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Documents Tab */}
+      {activeTab === 'document' && (
+        <div className="space-y-4 animate-fade-in-up">
+          <div className="flex justify-end">
+            <Button onClick={() => openDrawer('document')}><Plus className="size-4" /> Add Document</Button>
+          </div>
+          {documents.length === 0 ? (
+            <EmptyState icon={<FileText className="size-6" />} title="No documents" description="Upload vehicle documents securely." action={<Button onClick={() => openDrawer('document')}><Plus className="size-4" /> Upload</Button>} />
+          ) : (
+            <DataTable
+              columns={[
+                { key: 'type', header: 'Type', render: (r: any) => <Badge variant="info" size="sm">{r.type}</Badge> },
+                { key: 'name', header: 'Name', sortable: true },
+                { key: 'expiryDate', header: 'Expiry', render: (r: any) => r.expiryDate ? new Date(r.expiryDate).toLocaleDateString() : '—' },
+                { key: 'createdAt', header: 'Uploaded', sortable: true, render: (r: any) => new Date(r.createdAt).toLocaleDateString() },
+                { key: 'actions', header: '', render: (r: any) => <Button variant="danger" size="icon-sm" onClick={() => handleDeleteDocument(r.id)}><Trash2 className="size-3" /></Button> },
+              ]}
+              data={documents}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Form Drawer */}
+      <Drawer
+        open={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        title={drawerType === 'fuel' ? 'Log Fuel' : drawerType === 'maintenance' ? (editingLogId ? 'Edit Service' : 'Log Service') : drawerType === 'expense' ? 'Log Expense' : 'Add Document'}
+        description={`${editingLogId ? 'Edit' : 'Add'} a ${drawerType} record for ${vehicle.name}`}
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && <div className="rounded-[var(--radius-md)] bg-danger-muted border border-danger/20 p-3 text-body-sm text-danger">{error}</div>}
+
+          {/* Date field (shared) */}
+          {drawerType !== 'document' && (
+            <div className="space-y-2">
+              <Label>Date</Label>
+              <Input type="date" required value={commonDate} onChange={(e) => setCommonDate(e.target.value)} />
+            </div>
+          )}
+
+          {/* Fuel Form */}
+          {drawerType === 'fuel' && (
+            <>
+              <div className="space-y-2 mb-4">
+                <Label>Location (for live price check)</Label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-text-tertiary" />
+                    <Input value={fuelCity} onChange={(e) => setFuelCity(e.target.value)} className="pl-9" placeholder="e.g. Chennai" />
+                  </div>
+                  <Button type="button" variant="secondary" onClick={handleFetchPrice} loading={fetchingPrice}>Fetch Price</Button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2"><Label>Odometer *</Label><Input type="number" required value={fuelOdometer} onChange={(e) => setFuelOdometer(e.target.value)} /></div>
+                <div className="space-y-2"><Label>Station</Label><Input value={fuelStation} onChange={(e) => setFuelStation(e.target.value)} placeholder="e.g. HP Pump" /></div>
+              </div>
+              <div className="space-y-2"><Label>Fuel Type</Label><Select value={fuelType} onChange={(e) => setFuelType(e.target.value)}><option value="PETROL">Petrol</option><option value="DIESEL">Diesel</option><option value="CNG">CNG</option><option value="ELECTRIC">Electric</option></Select></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2"><Label>Litres *</Label><Input type="number" step="0.01" required value={fuelLitres} onChange={(e) => handleFuelCalc(e.target.value, fuelPricePerLitre)} /></div>
+                <div className="space-y-2"><Label>Price/Litre *</Label><Input type="number" step="0.01" required value={fuelPricePerLitre} onChange={(e) => handleFuelCalc(fuelLitres, e.target.value)} /></div>
+              </div>
+              <div className="space-y-2"><Label>Total Cost</Label><Input type="number" value={fuelTotalCost} onChange={(e) => setFuelTotalCost(e.target.value)} readOnly className="bg-surface-3" /></div>
+            </>
+          )}
+
+          {/* Maintenance Form */}
+          {drawerType === 'maintenance' && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2"><Label>Odometer *</Label><Input type="number" required value={mOdometer} onChange={(e) => setMOdometer(e.target.value)} /></div>
+                <div className="space-y-2"><Label>Workshop</Label><Input value={mWorkshop} onChange={(e) => setMWorkshop(e.target.value)} /></div>
+              </div>
+              <div className="space-y-2"><Label>Mechanic</Label><Input value={mMechanic} onChange={(e) => setMMechanic(e.target.value)} /></div>
+              <div className="space-y-2"><Label>Description *</Label><Textarea required value={mDescription} onChange={(e) => setMDescription(e.target.value)} placeholder="What was serviced..." /></div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-2"><Label>Labour</Label><Input type="number" value={mLabourCost} onChange={(e) => handleMaintenanceCalc(e.target.value, mPartsCost)} /></div>
+                <div className="space-y-2"><Label>Parts</Label><Input type="number" value={mPartsCost} onChange={(e) => handleMaintenanceCalc(mLabourCost, e.target.value)} /></div>
+                <div className="space-y-2"><Label>Total</Label><Input type="number" value={mTotalCost} readOnly className="bg-surface-3" /></div>
+              </div>
+              <div className="space-y-2"><Label>Notes</Label><Textarea value={mNotes} onChange={(e) => setMNotes(e.target.value)} /></div>
+              <div className="space-y-2">
+                <Label>Bill</Label>
+                <Input type="file" accept="image/*,.pdf" onChange={(e) => handleFileUpload(e, 'maintenance')} />
+                {mBillUrl && <p className="text-caption text-success">File uploaded</p>}
+              </div>
+            </>
+          )}
+
+          {/* Expense Form */}
+          {drawerType === 'expense' && (
+            <>
+              <div className="space-y-2">
+                <Label>Category *</Label>
+                <Select value={expCategory} onChange={(e) => setExpCategory(e.target.value)}>
+                  <option value="TOLL">Toll</option><option value="PARKING">Parking</option><option value="FINE">Fine</option>
+                  <option value="ACCESSORY">Accessory</option><option value="MODIFICATION">Modification</option><option value="OTHER">Other</option>
+                </Select>
+              </div>
+              <div className="space-y-2"><Label>Description</Label><Input value={expDescription} onChange={(e) => setExpDescription(e.target.value)} /></div>
+              <div className="space-y-2"><Label>Amount *</Label><Input type="number" step="0.01" required value={expAmount} onChange={(e) => setExpAmount(e.target.value)} /></div>
+              <div className="space-y-2">
+                <Label>Bill</Label>
+                <Input type="file" accept="image/*,.pdf" onChange={(e) => handleFileUpload(e, 'expense')} />
+                {expBillUrl && <p className="text-caption text-success">File uploaded</p>}
+              </div>
+            </>
+          )}
+
+          {/* Document Form */}
+          {drawerType === 'document' && (
+            <>
+              <div className="space-y-2">
+                <Label>Document Type *</Label>
+                <Select value={docType} onChange={(e) => setDocType(e.target.value)}>
+                  <option value="REGISTRATION">Registration</option><option value="INSURANCE">Insurance</option><option value="PUC">PUC</option>
+                  <option value="LICENSE">License</option><option value="WARRANTY">Warranty</option><option value="RECEIPT">Receipt</option><option value="OTHER">Other</option>
+                </Select>
+              </div>
+              <div className="space-y-2"><Label>Name *</Label><Input required value={docName} onChange={(e) => setDocName(e.target.value)} placeholder="Document name" /></div>
+              <div className="space-y-2">
+                <Label>File *</Label>
+                <Input type="file" accept="image/*,.pdf,.doc,.docx" onChange={(e) => handleFileUpload(e, 'document')} />
+                {docFileUrl && <p className="text-caption text-success">File uploaded ({(docFileSize / 1024).toFixed(0)} KB)</p>}
+              </div>
+              <div className="space-y-2"><Label>Expiry Date</Label><Input type="date" value={docExpiryDate} onChange={(e) => setDocExpiryDate(e.target.value)} /></div>
+            </>
+          )}
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-border-subtle">
+            <Button type="button" variant="secondary" onClick={() => setIsDrawerOpen(false)}>Cancel</Button>
+            <Button type="submit" loading={loading || uploading}>Save</Button>
+          </div>
+        </form>
+      </Drawer>
+    </div>
     </div>
   )
 }
